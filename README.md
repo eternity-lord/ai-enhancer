@@ -68,7 +68,8 @@
 - [x] **M0 — تحقیق و طراحی**: تحلیل کامل سایت، علم ماجرا، مشخصات، معماری، نقشهٔ راه.
 - [x] **M0.5 — نقشهٔ کیفیت برای چهرهٔ واقعی**: نوار کیفیت عددی، دروازهٔ هویت (ArcFace)، حالت Reference-locked، پروتکل ارزیابی، WBS فایل‌به‌فایل.
 - [x] **P0 — اسکلت اجرایی**: هستهٔ C++20 + کاشی‌بندی + مسیر کلاسیک + CLI + ۱۱ تست (بدون وابستگی خارجی).
-- [x] **P1 (این PR) — مسیر واقعی**: کدک واقعی JPEG/PNG/BMP/TGA (stb، vendored) + بک‌اند ncnn (CPU، آمادهٔ Vulkan) + موتور SR کاشی‌ای با دوخت raised-cosine + `tools/fetch_models.py` + ۱۹ تست. جزئیات و اعداد: [docs/18 §۱.۵–۱.۶](docs/18-build-plan-wbs.md).
+- [x] **P1 — مسیر واقعی**: کدک واقعی JPEG/PNG/BMP/TGA (stb، vendored) + بک‌اند ncnn (CPU، آمادهٔ Vulkan) + موتور SR کاشی‌ای با دوخت raised-cosine + `tools/fetch_models.py` + ۱۹ تست. جزئیات و اعداد: [docs/18 §۱.۵–۱.۶](docs/18-build-plan-wbs.md).
+- [x] **P1.5 — قابل اندازه‌گیری و درست دیده شدن**: EXIF orientation (۸ حالت) + رنگ خطی sRGB + متریک PSNR/SSIM + `atlas-cli eval` با JSON و دروازهٔ CI؛ ۳۵ تست. جزئیات: [docs/18 §۱.۷](docs/18-build-plan-wbs.md).
 - [ ] **M1 — MVP ویندوز**: Tauri + هستهٔ ncnn-Vulkan + بزرگ‌نمایی ۲x/۴x با tiling + صف دسته‌ای + پریست‌ها.
 
 > **تمرکز نسخهٔ ۱.۰:** «قوی‌ترین برای عکس واقعی با چهرهٔ واقعی» — یعنی هویت حفظ شود، بافت طبیعی بماند و هیچ زیباسازی/توهمی رخ ندهد. جزئیات: [docs/14](docs/14-masterplan-real-photo-face.md).
@@ -85,7 +86,8 @@
 # ۱) مسیر کلاسیک (بدون هیچ وابستگی خارجی، همه‌جا کار می‌کند)
 cmake -S core -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j
 ./build/atlas-cli enhance photo.jpg out.png --scale 2 --sharpen 20
-./build/atlas-tests        # ۱۹ تست
+./build/atlas-cli eval original.png out.png --min-psnr 32 --min-ssim 0.90
+./build/atlas-tests        # ۳۵ تست
 
 # ۲) مسیر مدل واقعی (ncnn؛ روی CPU هم اجرا می‌شود، با GPU چند برابر سریع‌تر)
 python3 tools/fetch_models.py --from-wheel        # وزن‌ها هرگز در گیت نیستند

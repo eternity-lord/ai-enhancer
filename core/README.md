@@ -4,7 +4,7 @@
 همین حالا build می‌شود، روی هر سه پلتفرم (ویندوز/لینوکس/مک و بعد موبایل) کار
 می‌کند و مسیر «مدل واقعی» را هم دارد، بدون اینکه وزن‌ها وارد گیت شوند.
 
-## وضعیت فعلی (P1)
+## وضعیت فعلی (P1.5)
 
 | بخش | وضعیت |
 |---|---|
@@ -17,9 +17,12 @@
 | بک‌اند ncnn (CPU؛ Vulkan با فلگ) | ✅ `ATLAS_WITH_NCNN=ON` |
 | C ABI (`atlas_create`, `atlas_devices_json`, …) | ✅ |
 | CLI: `version`, `devices`, `convert`, `enhance` | ✅ |
-| تست واحد | ✅ ۱۹ تست، صفر شکست |
-| WebP/TIFF + EXIF orientation | ⏳ P1-05 |
-| خطی‌سازی رنگ (sRGB → linear) | ⏳ P0-07 |
+| متریک‌ها: PSNR/SSIM/MAE/max-abs + `atlas-cli eval` | ✅ |
+| رنگ: sRGB ↔ خطی دقیق (IEC 61966-2-1) | ✅ (هنوز به مسیر مدل وصل نیست) |
+| EXIF orientation (۸ حالت) | ✅ پیش‌فرض روشن |
+| تست واحد | ✅ ۳۵ تست، صفر شکست |
+| WebP/TIFF | ⏳ P1-06 |
+| LPIPS/DISTS و ArcFace | ⏳ P3 |
 
 ## ساخت و اجرا
 
@@ -30,9 +33,11 @@ cmake --build build -j
 
 ./build/atlas-cli version
 ./build/atlas-cli devices
-./build/atlas-cli convert photo.jpg out.png          # decode/encode بدون تغییر هندسه
+./build/atlas-cli convert photo.jpg out.png          # decode/encode + جهت درست EXIF
 ./build/atlas-cli enhance photo.jpg out2x.png --scale 2 --sharpen 20
-./build/atlas-tests                                   # ۱۹ تست
+./build/atlas-cli eval original.png restored.png --min-psnr 32 --min-ssim 0.90
+./build/atlas-cli eval a.png b.png --json            # برای CI/پنل ارزیابی
+./build/atlas-tests                                   # ۳۵ تست
 ```
 
 ### مسیر مدل واقعی (ncnn)
@@ -79,13 +84,14 @@ GPU (Vulkan) پیش‌فرض می‌شود و CPU فقط fallback است. اعد
 ```
 include/atlas/   atlas.h (C ABI), types.h, image.h, buffer.h, image_io.h, backend.h, sr.h, …
 src/api/         context.cpp (ABI + فهرست واقعی دستگاه‌ها)
-src/image/       buffer.cpp, tiling.cpp, classical.cpp
-src/io/          stb_impl.cpp (فقط implementation), image_io.cpp (codec)، ppm.cpp (قدیمی)
+src/image/       buffer.cpp, tiling.cpp, classical.cpp, color.cpp
+src/io/          stb_impl.cpp (فقط implementation), image_io.cpp (codec), exif.cpp, ppm.cpp (قدیمی)
 src/backend/     classical_backend.cpp, ncnn_backend.cpp
 src/stages/      sr.cpp (کاشی + دوخت)
+src/metrics/     metrics.cpp (PSNR/SSIM/MAE)
 src/util/        log.cpp, errors.cpp
 third_party/stb/ stb_image.h, stb_image_write.h + LICENSE
-tests/           test.h, test_main.cpp, test_{tiling,classical,ppm,image_io,sr}.cpp
+tests/           test.h, test_main.cpp, test_{tiling,classical,ppm,image_io,sr,metrics,color,exif}.cpp
 ../cli/main.cpp  atlas-cli
 ```
 
@@ -108,12 +114,16 @@ tests/           test.h, test_main.cpp, test_{tiling,classical,ppm,image_io,sr}.
 | `cli/main.cpp` | `convert` اضافه شد چون برای ساخت جفت HR/LR و QA به decode→encode بدون ابزار بیرونی نیاز داشتیم. |
 | `tests/test_image_io.cpp` | PNG باید تقریباً بی‌اتلاف باشد؛ JPEG q95 فقط «نزدیک». |
 | `tests/test_sr.cpp` | تست کلیدی: تصویر ثابت باید ثابت بماند؛ اگر وزن‌های دوخت غلط باشند همان‌جا خط ظاهر می‌شود. |
+| `include/atlas/exif.h` + `src/io/exif.cpp` | فقط APP1 و tag `0x0112`؛ ۱۲۸KB اول فایل؛ هر ساختار مشکوک → «بدون چرخش». |
+| `include/atlas/color.h` + `src/image/color.cpp` | sRGB دقیق (قطعهٔ خطی + پخش ۲.۴)؛ آلفا تبدیل نمی‌شود چون رنگ نیست. |
+| `include/atlas/metrics.h` + `src/metrics/metrics.cpp` | PSNR روی RGB، SSIM استاندارد روی luma؛ مقایسهٔ ابعاد نابرابر با برش مرکزی. |
+| `cli/main.cpp` (`eval`) | خروجی انسانی + JSON + دروازهٔ `--min-psnr/--min-ssim` برای CI. |
 | `../tools/fetch_models.py` | چون assetهای Release گیت‌هاب در محیط بسته دانلود نمی‌شوند، مسیر «استخراج از wheel پایتون PyPI» اضافه شد؛ sha256 هر فایل چک می‌شود. |
 
 ## کار بعدی (P1 ادامه)
 
-1. WebP/TIFF + EXIF orientation (`P1-05`) و سپس مسیر libjpeg-turbo/libpng برای سرعت و ۱۶ بیت واقعی.
-2. Vulkan backend در ncnn (`P1-01`) + انتخاب خودکار دستگاه با micro-benchmark.
+1. WebP/TIFF (`P1-06`) و سپس مسیر libjpeg-turbo/libpng برای سرعت decode.
+2. Vulkan backend در ncnn (`P1-01`) + انتخاب خودکار دستگاه با micro-benchmark. مسیر مدل + متریک آماده است؛ فقط عدد GPU کم است.
 3. اتصال `sr.cpp` به pipeline چهره (`docs/15`): تشخیص چهره، دروازهٔ هویت، کامپوزیت.
 4. متریک‌ها (PSNR/SSIM/LPIPS) به‌عنوان ابزار ارزیابی، نه معیار تنها.
 

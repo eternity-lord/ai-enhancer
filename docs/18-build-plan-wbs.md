@@ -47,15 +47,18 @@ ai-enhancer/
 | P0-03 buffer | ✅ | crop/pad_reflect/clamp01 (crop فعلاً کپی) |
 | P0-04 errors/log | ✅ (حداقلی) | لاگ فایل چرخشی در P6 |
 | P0-05/P0-06 codec | ✅ (stb) | JPEG/PNG/BMP/TGA خواندن+نوشتن، ۸/۱۶ بیت؛ **مسیر مهاجرت** به libjpeg-turbo/libpng باز است |
-| P0-07 color | ⏳ | خطی‌سازی sRGB در P1-06 |
+| P0-07 color | ✅ | `src/image/color.cpp`: sRGB↔خطی دقیق (IEC 61966-2-1)، آلفا دست‌نخورده، ۵ تست؛ اتصال به مسیر SR در P1-06 |
 | P0-08/P0-09 tiling/blend | ✅ / ✅ | کاشی با تست پوشش + دوخت raised-cosine با تست «تصویر ثابت» |
 | P0-10 classical backend | ✅ | Lanczos+unsharp؛ ۹٫۱ MP/s (۲ هسته) |
 | P0-11/12 context+CLI | ✅ | `version`/`devices`/`convert`/`enhance` + `--param/--weights/--tile/--overlap/--threads/--fp16` |
-| P0-13 tests | ✅ | **۱۹ تست**، صفر شکست |
+| P0-13 tests | ✅ | **۳۵ تست**، صفر شکست |
 | P1-01 ncnn backend | ✅ (CPU) | `ATLAS_WITH_NCNN=ON`; pad-to-8 + crop؛ Vulkan فلگ بعدی |
 | P1-02 model registry | ✅ (سبک) | `tools/fetch_models.py` با sha256 + مسیر آفلاین `--from-dir` |
 | P1-03 SR کاشی‌ای واقعی | ✅ | x4plus و animevideov3-x2/x3/x4 روی عکس واقعی اجرا شد |
 | P1-04 پلتفرم‌ها | ⏳ | Windows/Android در M1/M3 |
+| P1-05 EXIF orientation | ✅ | ۸ حالت EXIF + پارسر APP1 (فقط ۱۲۸KB اول فایل)، پیش‌فرض روشن |
+| P1-06 WebP/TIFF | ⏳ | بعد از EXIF؛ WebP نیاز به decoder اختصاصی دارد |
+| P3-04 متریک‌ها | 🟡 (شروع) | PSNR/SSIM/MAE/max-abs در `core/src/metrics` + `atlas-cli eval`؛ LPIPS/DISTS و ArcFace هنوز نه |
 
 **Gate P0/P1 فعلی:** روی CPU سبز است. برای «روی iGPU» فقط باید ncnn با
 `-DNCNN_VULKAN=ON` کامپایل و `--backend ncnn` روی دستگاه Vulkan اجرا شود (کد
@@ -91,6 +94,31 @@ PSNR مدل پایین‌تر است و این طبیعی است: GAN جزئیا
 بیشتر می‌شود. اما در پرتره، خروجی x4plus چشمان را اشباع و پوست را صاف می‌کند —
 یعنی همان «زیباسازی/توهم» که در `docs/14` ممنوع شده است. نتیجه: **PSNR تنها
 معیار نیست** و برای چهره باید دروازهٔ هویت (ArcFace) + بررسی آرتیفکت حاکم باشد.
+
+## ۱.۷ P1.5 — «قابل اندازه‌گیری» و «درست دیده شدن»
+
+دو چیز که بدون آن‌ها حتی بهترین مدل هم بی‌فایده است:
+
+1. **جهت عکس (EXIF).** عکس موبایل معمولاً tag `0x0112` دارد؛ اگر نادیده گرفته
+   شود، چهرهٔ کاربر ۹۰ درجه چرخیده تحویل داده می‌شود. پیاده‌سازی: پارسر APP1
+   (فقط ۱۲۸ کیلوبایت اول فایل، بدون خواندن کل تصویر)، تبدیل ۸ حالت، و تست
+   پیکسل‌به‌پیکسل برای هر حالت + تست رفت‌وبرگشت ۹۰/۲۷۰.
+2. **متریک.** `atlas-cli eval a b` عدد می‌دهد: PSNR روی RGB، SSIM استاندارد
+   (پنجرهٔ ۱۱×۱۱، σ=1.5، روی luma Rec.709)، MAE و بیشینهٔ خطا. با `--json` و
+   `--min-psnr/--min-ssim` می‌شود از آن به‌عنوان دروازهٔ CI استفاده کرد.
+
+```bash
+./build/atlas-cli eval original.png restored.png --min-psnr 32 --min-ssim 0.90
+./build/atlas-cli eval a.png b.png --json     # {"psnr_db":...,"ssim":...,"pass":true}
+```
+
+**نکتهٔ مهم:** این متریک‌ها «دروازهٔ کیفیت چهره» نیستند؛ برای چهره، ArcFace
+(هویت) و بررسی آرتیفکت حاکم است (`docs/14`, `docs/17`). PSNR/SSIM ابزار
+پیش‌غربال‌گری‌اند، نه حکم نهایی.
+
+**رنگ خطی:** `to_linear`/`to_srgb` اضافه شد تا عملیات نویز/شارپ روی نور خطی
+انجام شود. عمداً در مسیر مدل Real-ESRGAN وصل نشد، چون آن مدل با ورودی
+sRGB-encoded آموزش دیده و خطی‌کردن، خروجی را بی‌صدا تغییر می‌دهد.
 
 ## ۲. فاز P0 — اسکلت اجرایی (۱۵ نفر-روز)
 

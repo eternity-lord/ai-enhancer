@@ -14,7 +14,9 @@
 #include "atlas/atlas.h"
 #include "atlas/backend.h"
 #include "atlas/image.h"
+#include "atlas/exif.h"
 #include "atlas/image_io.h"
+#include "atlas/metrics.h"
 #include "atlas/sr.h"
 #include "atlas/version.h"
 
@@ -34,6 +36,10 @@ struct Options {
   int threads = 0;
   bool fp16 = false;
   bool quiet = false;
+  bool auto_orient = true;
+  bool json = false;
+  double min_psnr = -1.0;
+  double min_ssim = -1.0;
 };
 
 void print_usage() {
@@ -41,8 +47,9 @@ void print_usage() {
       "atlas-cli %s\n"
       "Usage:\n"
       "  atlas-cli version | devices\n"
-      "  atlas-cli convert <in> <out> [--quality N]\n"
-      "  atlas-cli enhance <in.(jpg|png|webp|bmp|tga|ppm)> <out> [options]\n"
+      "  atlas-cli convert <in> <out> [--quality N] [--no-auto-orient]\n"
+      "  atlas-cli eval <a> <b> [--json] [--min-psnr X] [--min-ssim Y]\n"
+      "  atlas-cli enhance <in.(jpg|png|bmp|tga|ppm)> <out> [options]\n"
       "Options:\n"
       "  --scale N        upscale factor (default: model scale, else 2)\n"
       "  --tile N         tile size in pixels (default 256)\n"
@@ -54,7 +61,11 @@ void print_usage() {
       "  --fp16           request fp16 (GPU backends; CPU ignores)\n"
       "  --sharpen P      classical unsharp amount 0..100 (default 20)\n"
       "  --quality N      JPEG quality 1..100 (default 92)\n"
-      "  --quiet          no progress output\n",
+      "  --quiet          no progress output\n"
+      "  --no-auto-orient ignore EXIF orientation (default: apply it)\n"
+      "  --json           (eval) machine-readable JSON output\n"
+      "  --min-psnr X     (eval) fail if PSNR < X dB\n"
+      "  --min-ssim Y     (eval) fail if SSIM < Y\n",
       ATLAS_VERSION_STRING);
 }
 
@@ -75,7 +86,23 @@ bool parse_args(int argc, char** argv, Options* opt) {
       if (!has_next || !parse_int(argv[++i], target)) return false;
       return true;
     };
-    if (arg == "--quiet") {
+    if (arg == "--no-auto-orient") {
+      opt->auto_orient = false;
+    } else if (arg == "--json") {
+      opt->json = true;
+    } else if (arg == "--min-psnr") {
+      if (!has_next) return false;
+      char* end = nullptr;
+      const double v = std::strtod(argv[++i], &end);
+      if (end == argv[i] || *end != '\0') return false;
+      opt->min_psnr = v;
+    } else if (arg == "--min-ssim") {
+      if (!has_next) return false;
+      char* end = nullptr;
+      const double v = std::strtod(argv[++i], &end);
+      if (end == argv[i] || *end != '\0') return false;
+      opt->min_ssim = v;
+    } else if (arg == "--quiet") {
       opt->quiet = true;
     } else if (arg == "--fp16") {
       opt->fp16 = true;
@@ -102,6 +129,17 @@ bool parse_args(int argc, char** argv, Options* opt) {
       return false;
     }
   }
+  return true;
+}
+
+// خواندن با اعمال EXIF orientation؛ هر جای دیگری که تصویر را از دیسک می‌خوانیم
+// باید از این تابع استفاده کند، وگرنه یک مسیر بی‌سروصدا چرخش را از دست می‌دهد.
+bool load_oriented(const std::string& path, bool auto_orient, atlas::ImageF32* img,
+                   std::string* error, int* orientation_out = nullptr) {
+  if (!atlas::load_image(path, img, error)) return false;
+  const int o = auto_orient ? atlas::read_exif_orientation(path) : 0;
+  if (orientation_out) *orientation_out = o;
+  if (o > 1) *img = atlas::apply_orientation(*img, o);
   return true;
 }
 
@@ -132,6 +170,53 @@ int main(int argc, char** argv) {
     return 0;
   }
 
+  // eval: اندازه‌گیری کیفیت دو تصویر. خروجی JSON برای CI و پنل ارزیابی
+  // (`docs/17`) و خروجی انسانی برای کار روزمره.
+  if (cmd == "eval" && argc >= 4) {
+    Options eopt;
+    eopt.in_path = argv[2];
+    eopt.out_path = argv[3];
+    if (!parse_args(argc, argv, &eopt)) {
+      atlas_destroy(ctx);
+      return 2;
+    }
+    atlas::ImageF32 a;
+    atlas::ImageF32 b;
+    std::string error;
+    if (!load_oriented(eopt.in_path, eopt.auto_orient, &a, &error)) {
+      std::fprintf(stderr, "cannot load %s: %s\n", eopt.in_path.c_str(), error.c_str());
+      atlas_destroy(ctx);
+      return 1;
+    }
+    if (!load_oriented(eopt.out_path, eopt.auto_orient, &b, &error)) {
+      std::fprintf(stderr, "cannot load %s: %s\n", eopt.out_path.c_str(), error.c_str());
+      atlas_destroy(ctx);
+      return 1;
+    }
+    const atlas::QualityMetrics m = atlas::compare_images(a, b);
+    if (!m.valid) {
+      std::fprintf(stderr, "cannot compare empty images\n");
+      atlas_destroy(ctx);
+      return 1;
+    }
+    const bool pass = (eopt.min_psnr < 0.0 || m.psnr_db >= eopt.min_psnr) &&
+                      (eopt.min_ssim < 0.0 || m.ssim >= eopt.min_ssim);
+    if (eopt.json) {
+      std::printf(
+          "{\"psnr_db\":%.4f,\"ssim\":%.6f,\"mae\":%.6f,\"max_abs\":%.6f,"
+          "\"width\":%d,\"height\":%d,\"pass\":%s}\n",
+          m.psnr_db, m.ssim, m.mae, m.max_abs, m.width, m.height,
+          pass ? "true" : "false");
+    } else {
+      std::printf("psnr   : %.2f dB\nssim   : %.4f\nmae    : %.4f\nmax abs: %.4f\n",
+                  m.psnr_db, m.ssim, m.mae, m.max_abs);
+      std::printf("size   : %dx%d (مقایسه روی ناحیهٔ مشترک از مرکز)\n", m.width, m.height);
+      if (!pass) std::printf("gate   : FAILED\n");
+    }
+    atlas_destroy(ctx);
+    return pass ? 0 : 1;
+  }
+
   // convert: مسیر decode→encode بدون تغییر هندسه؛ برای QA و ساخت جفت‌های
   // ارزیابی (HR↔LR) لازم است تا مجبور نباشیم ابزار بیرونی نصب کنیم.
   if (cmd == "convert" && argc >= 4) {
@@ -144,7 +229,8 @@ int main(int argc, char** argv) {
     }
     atlas::ImageF32 img;
     std::string error;
-    if (!atlas::load_image(copt.in_path, &img, &error)) {
+    int orientation = 0;
+    if (!load_oriented(copt.in_path, copt.auto_orient, &img, &error, &orientation)) {
       std::fprintf(stderr, "cannot load %s: %s\n", copt.in_path.c_str(), error.c_str());
       atlas_destroy(ctx);
       return 1;
@@ -155,7 +241,8 @@ int main(int argc, char** argv) {
       return 1;
     }
     if (!copt.quiet) {
-      std::printf("%dx%d (%d ch) -> %s\n", img.width(), img.height(), img.channels(),
+      std::printf("%dx%d (%d ch, exif=%s) -> %s\n", img.width(), img.height(), img.channels(),
+                  orientation > 0 ? std::to_string(orientation).c_str() : "none",
                   copt.out_path.c_str());
     }
     atlas_destroy(ctx);
@@ -229,7 +316,8 @@ int main(int argc, char** argv) {
 
   atlas::ImageF32 src;
   std::string error;
-  if (!atlas::load_image(opt.in_path, &src, &error)) {
+  int orientation = 0;
+  if (!load_oriented(opt.in_path, opt.auto_orient, &src, &error, &orientation)) {
     std::fprintf(stderr, "cannot load %s: %s\n", opt.in_path.c_str(), error.c_str());
     atlas_destroy(ctx);
     return 1;
@@ -241,8 +329,11 @@ int main(int argc, char** argv) {
   sr.verbose = !opt.quiet;
 
   if (!opt.quiet) {
-    std::printf("input : %dx%d (%.2f MP)\n", src.width(), src.height(),
-                src.pixel_count() / 1e6);
+    std::printf("input : %dx%d (%.2f MP)%s\n", src.width(), src.height(),
+                src.pixel_count() / 1e6,
+                orientation > 1 ? (std::string(" [exif orientation ") +
+                                  std::to_string(orientation) + "]").c_str()
+                                : "");
     std::printf("model : %s (scale %d, threads %d)\n", backend->name(), backend->scale(),
                 threads);
     std::printf("plan  : tile=%d overlap=%d\n", sr.tile, sr.overlap);

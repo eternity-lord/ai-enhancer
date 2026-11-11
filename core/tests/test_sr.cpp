@@ -100,6 +100,27 @@ ATLAS_TEST(sr_rejects_empty_input_and_bad_scale) {
   CHECK(atlas::make_classical_backend(17, 0.0f) == nullptr);
 }
 
+ATLAS_TEST(sr_keeps_alpha_channel) {
+  atlas::ImageF32 img(48, 40, 4);
+  for (size_t i = 0; i < img.pixel_count(); ++i) {
+    img.data()[i * 4 + 0] = 0.25f;
+    img.data()[i * 4 + 1] = 0.5f;
+    img.data()[i * 4 + 2] = 0.75f;
+    img.data()[i * 4 + 3] = 0.4f;
+  }
+  auto backend = atlas::make_classical_backend(2, 0.0f);
+  CHECK(backend != nullptr);
+  if (!backend) return;
+  atlas::SrOptions opt;
+  opt.tile = 16;
+  opt.overlap = 4;
+  const auto out = atlas::sr_tiled(img, *backend, opt);
+  CHECK(out.channels() == 4);
+  if (out.channels() != 4) return;
+  CHECK_NEAR(out.pixel(0, 0)[0], 0.25f, 1e-4);
+  CHECK_NEAR(out.pixel(0, 0)[3], 0.4f, 1e-4);
+}
+
 ATLAS_TEST(sr_output_corners_are_sane) {
   const auto img = make_gradient(64, 48);
   auto backend = atlas::make_classical_backend(2, 0.0f);

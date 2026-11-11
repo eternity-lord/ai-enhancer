@@ -4,7 +4,7 @@
 همین حالا build می‌شود، روی هر سه پلتفرم (ویندوز/لینوکس/مک و بعد موبایل) کار
 می‌کند و مسیر «مدل واقعی» را هم دارد، بدون اینکه وزن‌ها وارد گیت شوند.
 
-## وضعیت فعلی (P1.5)
+## وضعیت فعلی (P1.6)
 
 | بخش | وضعیت |
 |---|---|
@@ -19,9 +19,11 @@
 | CLI: `version`, `devices`, `convert`, `enhance` | ✅ |
 | متریک‌ها: PSNR/SSIM/MAE/max-abs + `atlas-cli eval` | ✅ |
 | رنگ: sRGB ↔ خطی دقیق (IEC 61966-2-1) | ✅ (هنوز به مسیر مدل وصل نیست) |
+| ICC: تبدیل پروفایل ماتریسی/TRC به sRGB | ✅ (`iCCP` در PNG، `APP2` در JPEG) |
+| آلفا: PNG/TGA چهارکاناله در کل مسیر | ✅ (ncnn: آلفا با Lanczos جدا) |
 | EXIF orientation (۸ حالت) | ✅ پیش‌فرض روشن |
-| تست واحد | ✅ ۳۵ تست، صفر شکست |
-| WebP/TIFF | ⏳ P1-06 |
+| تست واحد | ✅ ۴۵ تست، صفر شکست |
+| WebP/TIFF | ⏳ P1-08 |
 | LPIPS/DISTS و ArcFace | ⏳ P3 |
 
 ## ساخت و اجرا
@@ -37,7 +39,9 @@ cmake --build build -j
 ./build/atlas-cli enhance photo.jpg out2x.png --scale 2 --sharpen 20
 ./build/atlas-cli eval original.png restored.png --min-psnr 32 --min-ssim 0.90
 ./build/atlas-cli eval a.png b.png --json            # برای CI/پنل ارزیابی
-./build/atlas-tests                                   # ۳۵ تست
+./build/atlas-cli convert p3.jpg srgb.png            # تبدیل ICC → sRGB (پیش‌فرض)
+./build/atlas-cli convert p3.jpg raw.png --no-color-manage  # بدون تبدیل پروفایل
+./build/atlas-tests                                   # ۴۵ تست
 ```
 
 ### مسیر مدل واقعی (ncnn)
@@ -85,13 +89,13 @@ GPU (Vulkan) پیش‌فرض می‌شود و CPU فقط fallback است. اعد
 include/atlas/   atlas.h (C ABI), types.h, image.h, buffer.h, image_io.h, backend.h, sr.h, …
 src/api/         context.cpp (ABI + فهرست واقعی دستگاه‌ها)
 src/image/       buffer.cpp, tiling.cpp, classical.cpp, color.cpp
-src/io/          stb_impl.cpp (فقط implementation), image_io.cpp (codec), exif.cpp, ppm.cpp (قدیمی)
+src/io/          stb_impl.cpp (فقط implementation), image_io.cpp (codec+meta), exif.cpp, icc.cpp, ppm.cpp (قدیمی)
 src/backend/     classical_backend.cpp, ncnn_backend.cpp
 src/stages/      sr.cpp (کاشی + دوخت)
 src/metrics/     metrics.cpp (PSNR/SSIM/MAE)
 src/util/        log.cpp, errors.cpp
 third_party/stb/ stb_image.h, stb_image_write.h + LICENSE
-tests/           test.h, test_main.cpp, test_{tiling,classical,ppm,image_io,sr,metrics,color,exif}.cpp
+tests/           test.h, test_main.cpp, test_{tiling,classical,ppm,image_io,sr,metrics,color,exif,icc}.cpp
 ../cli/main.cpp  atlas-cli
 ```
 
@@ -118,11 +122,14 @@ tests/           test.h, test_main.cpp, test_{tiling,classical,ppm,image_io,sr,m
 | `include/atlas/color.h` + `src/image/color.cpp` | sRGB دقیق (قطعهٔ خطی + پخش ۲.۴)؛ آلفا تبدیل نمی‌شود چون رنگ نیست. |
 | `include/atlas/metrics.h` + `src/metrics/metrics.cpp` | PSNR روی RGB، SSIM استاندارد روی luma؛ مقایسهٔ ابعاد نابرابر با برش مرکزی. |
 | `cli/main.cpp` (`eval`) | خروجی انسانی + JSON + دروازهٔ `--min-psnr/--min-ssim` برای CI. |
+| `include/atlas/icc.h` + `src/io/icc.cpp` | ماتریس + TRC (`curv`/`para` ۰..۴)، LUT ۴۰۹۶، رد پروفایل LUT-based با گزارش صادقانه. |
+| `src/io/image_io.cpp` (آلفا) | PNG/TGA چهارکاناله می‌مانند؛ JPEG/BMP آلفا را کنار می‌گذارند **بدون** ضرب در آلفا. |
+| `tests/test_icc.cpp` | پروفایل ساختگی در تست ساخته می‌شود (بدون فایل مجوزدار)؛ تست طلایی: sRGB→sRGB باید بایت‌به‌بایت یکسان باشد. |
 | `../tools/fetch_models.py` | چون assetهای Release گیت‌هاب در محیط بسته دانلود نمی‌شوند، مسیر «استخراج از wheel پایتون PyPI» اضافه شد؛ sha256 هر فایل چک می‌شود. |
 
 ## کار بعدی (P1 ادامه)
 
-1. WebP/TIFF (`P1-06`) و سپس مسیر libjpeg-turbo/libpng برای سرعت decode.
+1. WebP/TIFF (`P1-08`) و سپس مسیر libjpeg-turbo/libpng برای سرعت decode.
 2. Vulkan backend در ncnn (`P1-01`) + انتخاب خودکار دستگاه با micro-benchmark. مسیر مدل + متریک آماده است؛ فقط عدد GPU کم است.
 3. اتصال `sr.cpp` به pipeline چهره (`docs/15`): تشخیص چهره، دروازهٔ هویت، کامپوزیت.
 4. متریک‌ها (PSNR/SSIM/LPIPS) به‌عنوان ابزار ارزیابی، نه معیار تنها.

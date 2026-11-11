@@ -27,6 +27,7 @@ add_library(atlas-core STATIC
   src/io/stb_impl.cpp
   src/io/image_io.cpp
   src/io/exif.cpp
+  src/io/icc.cpp
   src/backend/classical_backend.cpp
   src/backend/ncnn_backend.cpp
   src/stages/sr.cpp
@@ -72,6 +73,7 @@ if (ATLAS_BUILD_TESTS)
     tests/test_metrics.cpp
     tests/test_color.cpp
     tests/test_exif.cpp
+    tests/test_icc.cpp
   )
   target_link_libraries(atlas-tests PRIVATE atlas-core)
   add_test(NAME atlas-unit COMMAND atlas-tests)

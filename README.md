@@ -41,6 +41,12 @@
 | [docs/11-legal-licensing.md](docs/11-legal-licensing.md) | لایسنس مدل‌ها، استفادهٔ تجاری، حریم خصوصی، قوانین استور |
 | [docs/12-build-test.md](docs/12-build-test.md) | ساخت، CI، بسته‌بندی، دانلودر مدل، تست‌ها |
 | [docs/13-risks-open-questions.md](docs/13-risks-open-questions.md) | ریسک‌ها، سؤال‌های باز، لاگ تصمیم‌ها |
+| [docs/14-masterplan-real-photo-face.md](docs/14-masterplan-real-photo-face.md) | **نقشهٔ مادر: قوی‌ترین برای عکس واقعی با چهرهٔ واقعی** |
+| [docs/15-photo-face-pipeline.md](docs/15-photo-face-pipeline.md) | پایپ‌لاین چهره: تراز، بازسازی، دروازهٔ هویت، ترکیب |
+| [docs/16-model-training-plan.md](docs/16-model-training-plan.md) | مدل‌های چهره، Reference-aware، آموزش و دیستیل |
+| [docs/17-evaluation-protocol.md](docs/17-evaluation-protocol.md) | ارزیابی هویت/بافت/انصاف با آستانهٔ عبور |
+| [docs/18-build-plan-wbs.md](docs/18-build-plan-wbs.md) | WBS فایل‌به‌فایل + ترتیب ۱۰ روز اول |
+| [docs/notes/JOURNAL.md](docs/notes/JOURNAL.md) | دفتر یادداشت‌های مهندسی (هر فایل یک ورودی) |
 | [docs/research/sources.md](docs/research/sources.md) | منابع و تاریخ دسترسی (شفافیت پژوهشی) |
 | [models/catalog.json](models/catalog.json) | کاتالوگ ماشین‌خوان مدل‌ها (وظیفه، فرمت، لایسنس، تیر) |
 
@@ -59,8 +65,12 @@
 
 ## ۴) وضعیت فعلی
 
-- [x] **M0 — تحقیق و طراحی** (همین کامیت): تحلیل کامل سایت، علم ماجرا، مشخصات، معماری، نقشهٔ راه.
+- [x] **M0 — تحقیق و طراحی**: تحلیل کامل سایت، علم ماجرا، مشخصات، معماری، نقشهٔ راه.
+- [x] **M0.5 — نقشهٔ کیفیت برای چهرهٔ واقعی**: نوار کیفیت عددی، دروازهٔ هویت (ArcFace)، حالت Reference-locked، پروتکل ارزیابی، WBS فایل‌به‌فایل.
+- [x] **P0 — اسکلت اجرایی**: هستهٔ C++20 + کاشی‌بندی + مسیر کلاسیک + CLI + ۱۱ تست (بدون وابستگی خارجی).
 - [ ] **M1 — MVP ویندوز**: Tauri + هستهٔ ncnn-Vulkan + بزرگ‌نمایی ۲x/۴x با tiling + صف دسته‌ای + پریست‌ها.
+
+> **تمرکز نسخهٔ ۱.۰:** «قوی‌ترین برای عکس واقعی با چهرهٔ واقعی» — یعنی هویت حفظ شود، بافت طبیعی بماند و هیچ زیباسازی/توهمی رخ ندهد. جزئیات: [docs/14](docs/14-masterplan-real-photo-face.md).
 - [ ] **M2 — بازسازی کامل**: حذف نویز/JPEG، بازسازی چهره، Light AI، حذف پس‌زمینه.
 - [ ] **M3 — اندروید**، **M4 — iOS/مک**، **M5 — تیر مولد (Diffusion)**، **M6 — ویدیو**، **M7 — PWA/WebGPU**.
 
@@ -68,10 +78,20 @@
 
 ---
 
-## ۵) اجرا
+## ۵) اجرا (P0 — اسکلت قابل اجرا)
 
-هنوز کد اجرایی وجود ندارد (فاز طراحی). دستورهای ساخت، CI و بسته‌بندی در
-[docs/12-build-test.md](docs/12-build-test.md) مشخص شده‌اند.
+```bash
+cmake -S core -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+
+./build/atlas-cli version
+./build/atlas-cli devices
+./build/atlas-cli enhance in.ppm out.ppm --scale 2 --sharpen 20
+./build/atlas-tests        # ۱۱ تست
+```
+
+> ورودی فعلاً PPM است؛ کدک‌های JPEG/PNG در P0-05/06 و مدل واقعی SR در P1 اضافه می‌شوند.
+> جزئیات: [core/README.md](core/README.md) · دستورهای CI/بسته‌بندی: [docs/12](docs/12-build-test.md).
 
 ## ۶) لایسنس
 

@@ -81,3 +81,25 @@
 - هر چیزی دربارهٔ **معماری داخلی مدل‌های LetsEnhance** (مثلاً Diffusion بودن Ultra) **استنباط** است و در متن با 🟡/🔴 علامت‌گذاری شده.
 - ارقام سرعت در `07-performance.md` برآوردند و در M1 اندازه‌گیری می‌شوند.
 - قیمت‌ها و سهمیه‌ها در تاریخ ۲۰۲۶-۱۱-۱۱ ثبت شده‌اند و ممکن است تغییر کنند.
+
+---
+
+## ۶. منابع فاز چهره (M0.5)
+
+| # | منبع | چه چیزی | اطمینان |
+|---|---|---|---|
+| 49 | https://arxiv.org/abs/2412.06753 (InstantRestore, SIGGRAPH'25) | بازسازی چهرهٔ reference-aware تک‌مرحله‌ای، ۱–۴ رفرنس، ~۰٫۵s، ArcFace ~۰٫۸۲ | ✅ (مقاله) |
+| 50 | https://arxiv.org/abs/2501.05177 (FaceMe, AAAI'25) | ID prompt از رفرنس، IDS ~۰٫۶۴ در FFHQ-Ref moderate | ✅ (مقاله) |
+| 51 | https://arxiv.org/abs/2411.14125 (RestorerID) | تک‌رفرنس، IDS ~۰٫۵۵ در تخریب شدید | ✅ (مقاله) |
+| 52 | https://arxiv.org/abs/2412.05043 (ReF-LDM) | چندرفرنس، آستانهٔ ArcFace برای «همان شخص» (فاصله < ۰٫۴) | ✅ (مقاله) |
+| 53 | https://arxiv.org/abs/2510.04410 (CodeFormer++) | نقد هویت‌دریفت CodeFormer و GFPGAN، متریک LMD | ✅ (مقاله) |
+| 54 | https://arxiv.org/abs/2605.02814 (IConFace, 2026) | SOTA reference-aware، مقایسهٔ DMDNet/InstantRestore/FaceMe | ✅ (مقاله) |
+| 55 | https://arxiv.org/abs/2601.19506 (Pref-Restore, 2026) | مقایسهٔ DR2/DifFace/DiffBIR/GFPGAN/GPEN/CodeFormer/VQFR/RestoreFormer++ | ✅ (مقاله) |
+| 56 | https://arxiv.org/abs/2308.07228 (RestoreFormer++) | IDD/FID بهتر، مقدار کمی برای هویت | ✅ (مقاله) |
+| 57 | https://dopepics.io/blog/2026-4x-face-upscale-5-free-ai-models-vs-identity-drift.php | «دیوار هویت» در ۴x و مقایسهٔ CodeFormer/GFPGAN/StableSR/DiffBIR | 🟡 (تحلیل ثالث) |
+| 58 | https://gfpgaan.com/blog/best-ai-face-restoration-models/ | مقایسهٔ ۲۰۲۶ GFPGAN/CodeFormer/GPEN و اسلایدر fidelity | 🟡 (ثالث) |
+| 59 | https://github.com/deepinsight/insightface | ArcFace/SCRFD؛ **وزن‌های pretrained غیرتجاری** | ✅ (مخزن) |
+| 60 | https://github.com/zllrunning/face-parsing.PyTorch | BiSeNet face parsing | 🟡 (لایسنس وزن) |
+| 61 | https://www.sota2.com/research/sota/face-restoration-on-ffhq-ref-moderate | جدول مقایسهٔ Ref-FR (۲۰۲۶) | 🟡 (تجمیع نتایج مقالات) |
+
+> همان قاعده: اعداد مقالات، «گزارش نویسندگان» هستند؛ در محصول ما باید با مجموعهٔ طلایی خودمان بازسنجی شوند.

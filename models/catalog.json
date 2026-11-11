@@ -6,7 +6,8 @@
     "این فایل منبع حقیقت کاتالوگ مدل‌ها است. وزن‌ها هرگز در گیت ذخیره نمی‌شوند.",
     "license_verified=false یعنی لایسنس از منبع اصلی (LICENSE مخزن / کارت مدل) دوباره تأیید نشده است.",
     "commercial_ok=null یعنی وضعیت نامشخص است و مدل نباید در بستهٔ تجاری پیش‌فرض قرار گیرد.",
-    "size_mb_approx تقریبی و برای برنامه‌ریزی بسته‌بندی است؛ عدد قطعی پس از انتخاب نسخه ثبت می‌شود."
+    "size_mb_approx تقریبی و برای برنامه‌ریزی بسته‌بندی است؛ عدد قطعی پس از انتخاب نسخه ثبت می‌شود.",
+    "مدل‌های چهرهٔ Reference-aware در ۲۰۲۶ عمدتاً پژوهشی‌اند؛ پیش از هر استفادهٔ تجاری، لایسنس مخزن و وزن‌ها باید تأیید شود."
   ],
   "models": [
     {
@@ -17,9 +18,20 @@
       "arch": "RRDB",
       "scale": 4,
       "size_mb_approx": 64,
-      "formats": ["pth", "onnx", "ncnn"],
-      "tier": ["A", "B"],
-      "backend": ["ncnn-vulkan", "onnx", "cpu"],
+      "formats": [
+        "pth",
+        "onnx",
+        "ncnn"
+      ],
+      "tier": [
+        "A",
+        "B"
+      ],
+      "backend": [
+        "ncnn-vulkan",
+        "onnx",
+        "cpu"
+      ],
       "license": "BSD-3-Clause",
       "license_url": "https://github.com/xinntao/Real-ESRGAN/blob/master/LICENSE",
       "commercial_ok": true,
@@ -35,9 +47,20 @@
       "arch": "SRVGG",
       "scale": 4,
       "size_mb_approx": 5,
-      "formats": ["pth", "onnx", "ncnn"],
-      "tier": ["B", "C"],
-      "backend": ["ncnn-vulkan", "onnx", "cpu"],
+      "formats": [
+        "pth",
+        "onnx",
+        "ncnn"
+      ],
+      "tier": [
+        "B",
+        "C"
+      ],
+      "backend": [
+        "ncnn-vulkan",
+        "onnx",
+        "cpu"
+      ],
       "license": "BSD-3-Clause",
       "license_url": "https://github.com/xinntao/Real-ESRGAN/blob/master/LICENSE",
       "commercial_ok": true,
@@ -53,9 +76,20 @@
       "arch": "RRDB",
       "scale": 4,
       "size_mb_approx": 18,
-      "formats": ["pth", "onnx", "ncnn"],
-      "tier": ["B", "C"],
-      "backend": ["ncnn-vulkan", "onnx", "cpu"],
+      "formats": [
+        "pth",
+        "onnx",
+        "ncnn"
+      ],
+      "tier": [
+        "B",
+        "C"
+      ],
+      "backend": [
+        "ncnn-vulkan",
+        "onnx",
+        "cpu"
+      ],
       "license": "BSD-3-Clause",
       "license_url": "https://github.com/xinntao/Real-ESRGAN/blob/master/LICENSE",
       "commercial_ok": true,
@@ -71,9 +105,19 @@
       "arch": "SRVGG",
       "scale": 4,
       "size_mb_approx": 2.5,
-      "formats": ["pth", "onnx", "ncnn"],
-      "tier": ["C"],
-      "backend": ["ncnn-vulkan", "onnx", "cpu"],
+      "formats": [
+        "pth",
+        "onnx",
+        "ncnn"
+      ],
+      "tier": [
+        "C"
+      ],
+      "backend": [
+        "ncnn-vulkan",
+        "onnx",
+        "cpu"
+      ],
       "license": "BSD-3-Clause",
       "license_url": "https://github.com/xinntao/Real-ESRGAN/blob/master/LICENSE",
       "commercial_ok": true,
@@ -89,9 +133,18 @@
       "arch": "CUNet",
       "scale": 2,
       "size_mb_approx": 3,
-      "formats": ["pth", "ncnn"],
-      "tier": ["B", "C"],
-      "backend": ["ncnn-vulkan", "cpu"],
+      "formats": [
+        "pth",
+        "ncnn"
+      ],
+      "tier": [
+        "B",
+        "C"
+      ],
+      "backend": [
+        "ncnn-vulkan",
+        "cpu"
+      ],
       "license": "MIT",
       "license_url": "https://github.com/nihui/realcugan-ncnn-vulkan",
       "commercial_ok": true,
@@ -107,9 +160,19 @@
       "arch": "SPAN",
       "scale": 4,
       "size_mb_approx": 6,
-      "formats": ["pth", "onnx"],
-      "tier": ["B", "C"],
-      "backend": ["onnx", "ncnn-vulkan", "cpu"],
+      "formats": [
+        "pth",
+        "onnx"
+      ],
+      "tier": [
+        "B",
+        "C"
+      ],
+      "backend": [
+        "onnx",
+        "ncnn-vulkan",
+        "cpu"
+      ],
       "license": "TBD",
       "license_url": "https://github.com/hongyuanyu/SPAN",
       "commercial_ok": null,
@@ -125,9 +188,18 @@
       "arch": "ESRGAN",
       "scale": 4,
       "size_mb_approx": 67,
-      "formats": ["pth", "onnx", "ncnn"],
-      "tier": ["A"],
-      "backend": ["ncnn-vulkan", "onnx"],
+      "formats": [
+        "pth",
+        "onnx",
+        "ncnn"
+      ],
+      "tier": [
+        "A"
+      ],
+      "backend": [
+        "ncnn-vulkan",
+        "onnx"
+      ],
       "license": "Unclear/Non-commercial",
       "license_url": "https://openmodeldb.info/models/4x-UltraSharp",
       "commercial_ok": false,
@@ -143,9 +215,18 @@
       "arch": "ESRGAN",
       "scale": 4,
       "size_mb_approx": 67,
-      "formats": ["pth", "onnx", "ncnn"],
-      "tier": ["A"],
-      "backend": ["ncnn-vulkan", "onnx"],
+      "formats": [
+        "pth",
+        "onnx",
+        "ncnn"
+      ],
+      "tier": [
+        "A"
+      ],
+      "backend": [
+        "ncnn-vulkan",
+        "onnx"
+      ],
       "license": "CC-BY-NC-SA-4.0",
       "license_url": "https://openmodeldb.info/models/4x-Remacri",
       "commercial_ok": false,
@@ -161,15 +242,27 @@
       "arch": "StyleGAN2-based",
       "scale": 1,
       "size_mb_approx": 332,
-      "formats": ["pth", "onnx"],
-      "tier": ["A", "B", "C"],
-      "backend": ["onnx", "ncnn-vulkan", "cpu"],
+      "formats": [
+        "pth",
+        "onnx"
+      ],
+      "tier": [
+        "A",
+        "B",
+        "C"
+      ],
+      "backend": [
+        "onnx",
+        "ncnn-vulkan",
+        "cpu"
+      ],
       "license": "Apache-2.0 (with third-party exceptions)",
       "license_url": "https://github.com/TencentARC/GFPGAN/blob/master/LICENSE",
       "commercial_ok": true,
       "license_verified": true,
       "source": "https://github.com/TencentARC/GFPGAN",
-      "role": "بازسازی چهره پیش‌فرض"
+      "role": "بازسازی چهره پیش‌فرض",
+      "notes": "پیش‌فرض تجاری‌امن؛ تمایل به «زیباترکردن» دارد، بنابراین فقط با دروازهٔ هویت و ترکیب فرکانسی استفاده می‌شود."
     },
     {
       "id": "codeformer",
@@ -179,9 +272,18 @@
       "arch": "VQ-Transformer",
       "scale": 1,
       "size_mb_approx": 359,
-      "formats": ["pth", "onnx"],
-      "tier": ["A", "B"],
-      "backend": ["onnx", "cpu"],
+      "formats": [
+        "pth",
+        "onnx"
+      ],
+      "tier": [
+        "A",
+        "B"
+      ],
+      "backend": [
+        "onnx",
+        "cpu"
+      ],
       "license": "S-Lab License 1.0 (non-commercial)",
       "license_url": "https://github.com/sczhou/CodeFormer/blob/master/LICENSE",
       "commercial_ok": false,
@@ -197,9 +299,18 @@
       "arch": "Swin-Conv-UNet",
       "scale": 1,
       "size_mb_approx": 17,
-      "formats": ["pth", "onnx"],
-      "tier": ["A", "B"],
-      "backend": ["onnx", "cpu"],
+      "formats": [
+        "pth",
+        "onnx"
+      ],
+      "tier": [
+        "A",
+        "B"
+      ],
+      "backend": [
+        "onnx",
+        "cpu"
+      ],
       "license": "Apache-2.0",
       "license_url": "https://github.com/cszn/SCUNet",
       "commercial_ok": true,
@@ -215,9 +326,18 @@
       "arch": "CNN + quality factor",
       "scale": 1,
       "size_mb_approx": 25,
-      "formats": ["pth", "onnx"],
-      "tier": ["A", "B"],
-      "backend": ["onnx", "cpu"],
+      "formats": [
+        "pth",
+        "onnx"
+      ],
+      "tier": [
+        "A",
+        "B"
+      ],
+      "backend": [
+        "onnx",
+        "cpu"
+      ],
       "license": "Apache-2.0",
       "license_url": "https://github.com/jiaxi-jiang/FBCNN",
       "commercial_ok": true,
@@ -233,9 +353,19 @@
       "arch": "BiRefNet",
       "scale": 1,
       "size_mb_approx": 44,
-      "formats": ["pth", "onnx"],
-      "tier": ["A", "B", "C"],
-      "backend": ["onnx", "cpu"],
+      "formats": [
+        "pth",
+        "onnx"
+      ],
+      "tier": [
+        "A",
+        "B",
+        "C"
+      ],
+      "backend": [
+        "onnx",
+        "cpu"
+      ],
       "license": "MIT",
       "license_url": "https://github.com/ZhengPeng7/BiRefNet/blob/main/LICENSE",
       "commercial_ok": true,
@@ -251,9 +381,17 @@
       "arch": "U2Net",
       "scale": 1,
       "size_mb_approx": 4.7,
-      "formats": ["pth", "onnx"],
-      "tier": ["C"],
-      "backend": ["onnx", "cpu"],
+      "formats": [
+        "pth",
+        "onnx"
+      ],
+      "tier": [
+        "C"
+      ],
+      "backend": [
+        "onnx",
+        "cpu"
+      ],
       "license": "Apache-2.0",
       "license_url": "https://github.com/xuebinqin/U-2-Net",
       "commercial_ok": true,
@@ -269,9 +407,18 @@
       "arch": "Fourier convolutions",
       "scale": 1,
       "size_mb_approx": 200,
-      "formats": ["pth", "onnx"],
-      "tier": ["A", "B"],
-      "backend": ["onnx", "cpu"],
+      "formats": [
+        "pth",
+        "onnx"
+      ],
+      "tier": [
+        "A",
+        "B"
+      ],
+      "backend": [
+        "onnx",
+        "cpu"
+      ],
       "license": "Apache-2.0",
       "license_url": "https://github.com/advimman/lama",
       "commercial_ok": true,
@@ -287,9 +434,16 @@
       "arch": "Dual-decoder",
       "scale": 1,
       "size_mb_approx": 100,
-      "formats": ["pth", "onnx"],
-      "tier": ["B"],
-      "backend": ["onnx"],
+      "formats": [
+        "pth",
+        "onnx"
+      ],
+      "tier": [
+        "B"
+      ],
+      "backend": [
+        "onnx"
+      ],
       "license": "Apache-2.0",
       "license_url": "https://github.com/piddnad/DDColor",
       "commercial_ok": true,
@@ -305,15 +459,25 @@
       "arch": "SCRFD",
       "scale": 1,
       "size_mb_approx": 3,
-      "formats": ["onnx"],
-      "tier": ["A", "B", "C"],
-      "backend": ["onnx", "cpu"],
-      "license": "MIT (InsightFace)",
+      "formats": [
+        "onnx"
+      ],
+      "tier": [
+        "A",
+        "B",
+        "C"
+      ],
+      "backend": [
+        "onnx",
+        "cpu"
+      ],
+      "license": "MIT (code) / non-commercial (InsightFace weights)",
       "license_url": "https://github.com/deepinsight/insightface",
-      "commercial_ok": true,
-      "license_verified": false,
+      "commercial_ok": false,
+      "license_verified": true,
       "source": "https://github.com/deepinsight/insightface",
-      "role": "تشخیص چهره و تراز"
+      "role": "تشخیص چهره و تراز",
+      "notes": "برای انتشار تجاری یا باید مجوز وزن‌ها تأیید شود یا دیتکتور جایگزین/آموزش داخلی استفاده شود."
     },
     {
       "id": "supir",
@@ -323,9 +487,17 @@
       "arch": "SDXL diffusion + control",
       "scale": 4,
       "size_mb_approx": 5000,
-      "formats": ["safetensors", "gguf"],
-      "tier": ["A+"],
-      "backend": ["cuda", "directml"],
+      "formats": [
+        "safetensors",
+        "gguf"
+      ],
+      "tier": [
+        "A+"
+      ],
+      "backend": [
+        "cuda",
+        "directml"
+      ],
       "license": "Apache-2.0 (verify weights)",
       "license_url": "https://github.com/Fanghua-Yu/SUPIR",
       "commercial_ok": true,
@@ -341,9 +513,17 @@
       "arch": "One-step DiT",
       "scale": 4,
       "size_mb_approx": 7000,
-      "formats": ["safetensors", "gguf"],
-      "tier": ["A+"],
-      "backend": ["cuda", "mps"],
+      "formats": [
+        "safetensors",
+        "gguf"
+      ],
+      "tier": [
+        "A+"
+      ],
+      "backend": [
+        "cuda",
+        "mps"
+      ],
       "license": "Apache-2.0 (verify)",
       "license_url": "https://github.com/ByteDance-Seed/SeedVR",
       "commercial_ok": true,
@@ -359,15 +539,342 @@
       "arch": "IFNet",
       "scale": 1,
       "size_mb_approx": 20,
-      "formats": ["pth", "onnx", "ncnn"],
-      "tier": ["A", "B"],
-      "backend": ["ncnn-vulkan", "onnx"],
+      "formats": [
+        "pth",
+        "onnx",
+        "ncnn"
+      ],
+      "tier": [
+        "A",
+        "B"
+      ],
+      "backend": [
+        "ncnn-vulkan",
+        "onnx"
+      ],
       "license": "MIT",
       "license_url": "https://github.com/hzwer/ECCV2022-RIFE",
       "commercial_ok": true,
       "license_verified": false,
       "source": "https://github.com/hzwer/ECCV2022-RIFE",
       "role": "درون‌یابی فریم/کمک به پایداری زمانی"
+    },
+    {
+      "id": "arcface-r100",
+      "display_name": "ArcFace R100 (InsightFace)",
+      "task": "identity_encoder",
+      "domain": "face",
+      "arch": "ResNet-100 + ArcFace",
+      "scale": 1,
+      "size_mb_approx": 250,
+      "formats": [
+        "onnx"
+      ],
+      "tier": [
+        "A",
+        "B",
+        "C"
+      ],
+      "backend": [
+        "onnx",
+        "cpu"
+      ],
+      "license": "MIT (code) / non-commercial (InsightFace model weights)",
+      "license_url": "https://github.com/deepinsight/insightface",
+      "commercial_ok": false,
+      "license_verified": true,
+      "source": "https://github.com/deepinsight/insightface",
+      "role": "استخراج امبدینگ هویت و دروازهٔ هویت",
+      "notes": "وزن‌های buffalo_l برای پژوهش غیرتجاری‌اند؛ برای بستهٔ تجاری باید مدل شناسهٔ دارای مجوز یا آموزش‌دادهٔ داخلی جایگزین شود."
+    },
+    {
+      "id": "adaface",
+      "display_name": "AdaFace (IR-101)",
+      "task": "identity_encoder",
+      "domain": "face",
+      "arch": "IR-101 + AdaFace",
+      "scale": 1,
+      "size_mb_approx": 250,
+      "formats": [
+        "pth",
+        "onnx"
+      ],
+      "tier": [
+        "A",
+        "B"
+      ],
+      "backend": [
+        "onnx",
+        "cpu"
+      ],
+      "license": "TBD (verify weights)",
+      "license_url": "https://github.com/mk-minchul/AdaFace",
+      "commercial_ok": null,
+      "license_verified": false,
+      "source": "https://github.com/mk-minchul/AdaFace",
+      "role": "متریک مکمل هویت (تأیید متقابل با ArcFace)"
+    },
+    {
+      "id": "bisnet-face-parsing",
+      "display_name": "BiSeNet face parsing",
+      "task": "face_parsing",
+      "domain": "face",
+      "arch": "BiSeNet",
+      "scale": 1,
+      "size_mb_approx": 50,
+      "formats": [
+        "pth",
+        "onnx"
+      ],
+      "tier": [
+        "A",
+        "B",
+        "C"
+      ],
+      "backend": [
+        "onnx",
+        "cpu"
+      ],
+      "license": "MIT (code) / verify weights",
+      "license_url": "https://github.com/zllrunning/face-parsing.PyTorch",
+      "commercial_ok": null,
+      "license_verified": false,
+      "source": "https://github.com/zllrunning/face-parsing.PyTorch",
+      "role": "ماسک پوست/مو/چشم/لب/عینک برای ترکیب و محافظت"
+    },
+    {
+      "id": "gpen",
+      "display_name": "GPEN (512)",
+      "task": "face_restoration",
+      "domain": "face",
+      "arch": "GAN prior (StyleGAN2)",
+      "scale": 1,
+      "size_mb_approx": 70,
+      "formats": [
+        "pth",
+        "onnx"
+      ],
+      "tier": [
+        "A",
+        "B"
+      ],
+      "backend": [
+        "onnx",
+        "cuda"
+      ],
+      "license": "TBD (verify)",
+      "license_url": "https://github.com/yangxy/GPEN",
+      "commercial_ok": null,
+      "license_verified": false,
+      "source": "https://github.com/yangxy/GPEN",
+      "role": "جایگزین/مقایسه برای بازسازی چهره"
+    },
+    {
+      "id": "restoreformer-plus",
+      "display_name": "RestoreFormer++",
+      "task": "face_restoration",
+      "domain": "face",
+      "arch": "Transformer + VQ prior",
+      "scale": 1,
+      "size_mb_approx": 100,
+      "formats": [
+        "pth",
+        "onnx"
+      ],
+      "tier": [
+        "A",
+        "B"
+      ],
+      "backend": [
+        "onnx"
+      ],
+      "license": "TBD (verify)",
+      "license_url": "https://github.com/wzhouxiff/RestoreFormerPlusPlus",
+      "commercial_ok": null,
+      "license_verified": false,
+      "source": "https://github.com/wzhouxiff/RestoreFormerPlusPlus",
+      "role": "گزینهٔ تحقیقاتی با IDD بهتر؛ نیازمند بازبینی لایسنس"
+    },
+    {
+      "id": "codeformer-plus",
+      "display_name": "CodeFormer++",
+      "task": "face_restoration",
+      "domain": "face",
+      "arch": "CodeFormer + deformable registration",
+      "scale": 1,
+      "size_mb_approx": 400,
+      "formats": [
+        "pth",
+        "onnx"
+      ],
+      "tier": [
+        "A"
+      ],
+      "backend": [
+        "onnx",
+        "cuda"
+      ],
+      "license": "TBD (research)",
+      "license_url": "https://arxiv.org/abs/2510.04410",
+      "commercial_ok": null,
+      "license_verified": false,
+      "source": "https://arxiv.org/abs/2510.04410",
+      "role": "رصد؛ هدف رفع هویت‌دریفت CodeFormer"
+    },
+    {
+      "id": "instantrestore",
+      "display_name": "InstantRestore",
+      "task": "reference_face_restoration",
+      "domain": "face",
+      "arch": "single-step SD-Turbo + shared-image attention",
+      "scale": 1,
+      "size_mb_approx": 2500,
+      "formats": [
+        "safetensors",
+        "onnx"
+      ],
+      "tier": [
+        "A+"
+      ],
+      "backend": [
+        "cuda",
+        "mps"
+      ],
+      "license": "TBD (verify repository license)",
+      "license_url": "https://arxiv.org/abs/2412.06753",
+      "commercial_ok": null,
+      "license_verified": false,
+      "source": "https://arxiv.org/abs/2412.06753",
+      "role": "Reference-locked: هویت ~۰٫۸ با ۱–۴ رفرنس، ~۰٫۵s",
+      "notes": "۱–۴ عکس رفرنس؛ بدون فاین‌تیون per-identity؛ کاندید اصلی تمایز ما."
+    },
+    {
+      "id": "faceme",
+      "display_name": "FaceMe",
+      "task": "reference_face_restoration",
+      "domain": "face",
+      "arch": "identity prompt from references",
+      "scale": 1,
+      "size_mb_approx": 2000,
+      "formats": [
+        "pth",
+        "onnx"
+      ],
+      "tier": [
+        "A+"
+      ],
+      "backend": [
+        "cuda",
+        "onnx"
+      ],
+      "license": "TBD (verify)",
+      "license_url": "https://arxiv.org/abs/2501.05177",
+      "commercial_ok": null,
+      "license_verified": false,
+      "source": "https://arxiv.org/abs/2501.05177",
+      "role": "Reference-locked جایگزین؛ کیفیت بالا در بنچمارک ۲۰۲۶"
+    },
+    {
+      "id": "restorerid",
+      "display_name": "RestorerID",
+      "task": "reference_face_restoration",
+      "domain": "face",
+      "arch": "FIR-Adapter + ID scaling",
+      "scale": 1,
+      "size_mb_approx": 1800,
+      "formats": [
+        "pth",
+        "onnx"
+      ],
+      "tier": [
+        "A"
+      ],
+      "backend": [
+        "cuda",
+        "onnx"
+      ],
+      "license": "TBD (verify)",
+      "license_url": "https://arxiv.org/abs/2411.14125",
+      "commercial_ok": null,
+      "license_verified": false,
+      "source": "https://arxiv.org/abs/2411.14125",
+      "role": "تک‌رفرنس؛ سبک‌تر برای تیر A"
+    },
+    {
+      "id": "ref-ldm",
+      "display_name": "ReF-LDM",
+      "task": "reference_face_restoration",
+      "domain": "face",
+      "arch": "latent diffusion + CacheKV",
+      "scale": 1,
+      "size_mb_approx": 4000,
+      "formats": [
+        "safetensors"
+      ],
+      "tier": [
+        "A+"
+      ],
+      "backend": [
+        "cuda"
+      ],
+      "license": "TBD (verify)",
+      "license_url": "https://arxiv.org/abs/2412.05043",
+      "commercial_ok": null,
+      "license_verified": false,
+      "source": "https://arxiv.org/abs/2412.05043",
+      "role": "چندرفرنس، کیفیت بالا، سنگین"
+    },
+    {
+      "id": "dmdnet",
+      "display_name": "DMDNet",
+      "task": "reference_face_restoration",
+      "domain": "face",
+      "arch": "dual memory dictionary",
+      "scale": 1,
+      "size_mb_approx": 200,
+      "formats": [
+        "pth",
+        "onnx"
+      ],
+      "tier": [
+        "A",
+        "B"
+      ],
+      "backend": [
+        "onnx",
+        "cpu"
+      ],
+      "license": "TBD (verify)",
+      "license_url": "https://github.com/csxmli2016/DMDNet",
+      "commercial_ok": null,
+      "license_verified": false,
+      "source": "https://github.com/csxmli2016/DMDNet",
+      "role": "کلاسیک، سریع، هویت پایین‌تر"
+    },
+    {
+      "id": "iconface",
+      "display_name": "IConFace (2026)",
+      "task": "reference_face_restoration",
+      "domain": "face",
+      "arch": "identity-structure asymmetric conditioning",
+      "scale": 1,
+      "size_mb_approx": 3000,
+      "formats": [
+        "safetensors",
+        "onnx"
+      ],
+      "tier": [
+        "A+"
+      ],
+      "backend": [
+        "cuda"
+      ],
+      "license": "TBD (research)",
+      "license_url": "https://arxiv.org/abs/2605.02814",
+      "commercial_ok": null,
+      "license_verified": false,
+      "source": "https://arxiv.org/abs/2605.02814",
+      "role": "SOTA پژوهشی ۲۰۲۶ (ArcFace ~۰٫۷۰ در FFHQ-Ref)"
     }
   ]
 }

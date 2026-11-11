@@ -25,6 +25,12 @@
 | 11 | [legal-licensing](11-legal-licensing.md) | لایسنس، تجاری‌سازی، حریم خصوصی |
 | 12 | [build-test](12-build-test.md) | ساخت، CI، بسته‌بندی، تست |
 | 13 | [risks-open-questions](13-risks-open-questions.md) | ریسک‌ها و سؤال‌های باز |
+| **14** | [masterplan-real-photo-face](14-masterplan-real-photo-face.md) | **نقشهٔ مادر برای عکس واقعی + چهرهٔ واقعی (کیفیت عددی، فازها، دروازه‌ها)** |
+| **15** | [photo-face-pipeline](15-photo-face-pipeline.md) | مشخصات پایپ‌لاین چهره: تراز، بازسازی، دروازهٔ هویت، ترکیب |
+| **16** | [model-training-plan](16-model-training-plan.md) | مدل‌های چهره، Reference-aware، آموزش/دیستیل/کوانت |
+| **17** | [evaluation-protocol](17-evaluation-protocol.md) | مجموعهٔ طلایی، متریک‌ها، آستانه‌ها، داوری انسانی، انصاف |
+| **18** | [build-plan-wbs](18-build-plan-wbs.md) | **WBS فایل‌به‌فایل با تخمین و ترتیب اجرا** |
+| **19** | [notes/JOURNAL](notes/JOURNAL.md) | دفتر یادداشت‌ها (تصمیم‌ها، فرض‌ها، سؤال‌ها) |
 | — | [research/sources](research/sources.md) | منابع، تاریخ دسترسی، میزان اطمینان |
 
 ## قواعد نگارش این مستندات

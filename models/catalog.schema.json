@@ -3,75 +3,196 @@
   "$id": "https://github.com/eternity-lord/ai-enhancer/models/catalog.schema.json",
   "title": "Atlas model catalog",
   "type": "object",
-  "required": ["version", "updated", "models"],
+  "required": [
+    "version",
+    "updated",
+    "models"
+  ],
   "properties": {
-    "$schema": { "type": "string" },
-    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
-    "updated": { "type": "string", "format": "date" },
-    "notes": { "type": "array", "items": { "type": "string" } },
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "updated": {
+      "type": "string",
+      "format": "date"
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "models": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/model" }
+      "items": {
+        "$ref": "#/$defs/model"
+      }
     }
   },
   "$defs": {
     "model": {
       "type": "object",
       "required": [
-        "id", "display_name", "task", "arch", "scale",
-        "formats", "tier", "backend", "license", "commercial_ok",
-        "license_verified", "source", "role"
+        "id",
+        "display_name",
+        "task",
+        "arch",
+        "scale",
+        "formats",
+        "tier",
+        "backend",
+        "license",
+        "commercial_ok",
+        "license_verified",
+        "source",
+        "role"
       ],
       "properties": {
-        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
-        "display_name": { "type": "string" },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "display_name": {
+          "type": "string"
+        },
         "task": {
           "type": "string",
           "enum": [
-            "super_resolution", "generative_super_resolution",
-            "face_detection", "face_restoration", "denoise",
-            "jpeg_artifact_removal", "deblur", "background_removal",
-            "inpainting", "colorization", "color_correction",
-            "frame_interpolation", "generative_restoration"
+            "super_resolution",
+            "generative_super_resolution",
+            "face_detection",
+            "face_restoration",
+            "denoise",
+            "jpeg_artifact_removal",
+            "deblur",
+            "background_removal",
+            "inpainting",
+            "colorization",
+            "color_correction",
+            "frame_interpolation",
+            "generative_restoration",
+            "identity_encoder",
+            "face_parsing",
+            "reference_face_restoration"
           ]
         },
-        "domain": { "type": "string" },
-        "arch": { "type": "string" },
-        "scale": { "type": "number", "minimum": 1, "maximum": 16 },
-        "size_mb_approx": { "type": "number", "minimum": 0 },
+        "domain": {
+          "type": "string"
+        },
+        "arch": {
+          "type": "string"
+        },
+        "scale": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 16
+        },
+        "size_mb_approx": {
+          "type": "number",
+          "minimum": 0
+        },
         "formats": {
           "type": "array",
-          "items": { "enum": ["pth", "onnx", "ncnn", "safetensors", "gguf", "tflite", "mlmodel"] }
+          "items": {
+            "enum": [
+              "pth",
+              "onnx",
+              "ncnn",
+              "safetensors",
+              "gguf",
+              "tflite",
+              "mlmodel"
+            ]
+          }
         },
-        "tier": { "type": "array", "items": { "enum": ["A+", "A", "B", "C", "C-"] } },
+        "tier": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "A+",
+              "A",
+              "B",
+              "C",
+              "C-"
+            ]
+          }
+        },
         "backend": {
           "type": "array",
           "items": {
-            "enum": ["ncnn-vulkan", "ncnn-metal", "onnx", "cpu", "directml", "openvino",
-                     "cuda", "tensorrt", "coreml", "qnn", "mps", "webgpu"]
+            "enum": [
+              "ncnn-vulkan",
+              "ncnn-metal",
+              "onnx",
+              "cpu",
+              "directml",
+              "openvino",
+              "cuda",
+              "tensorrt",
+              "coreml",
+              "qnn",
+              "mps",
+              "webgpu"
+            ]
           }
         },
-        "license": { "type": "string" },
-        "license_url": { "type": "string", "format": "uri" },
-        "commercial_ok": { "type": ["boolean", "null"] },
-        "license_verified": { "type": "boolean" },
-        "source": { "type": "string", "format": "uri" },
+        "license": {
+          "type": "string"
+        },
+        "license_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "commercial_ok": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "license_verified": {
+          "type": "boolean"
+        },
+        "source": {
+          "type": "string",
+          "format": "uri"
+        },
         "download": {
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["url", "sha256"],
+            "required": [
+              "url",
+              "sha256"
+            ],
             "properties": {
-              "url": { "type": "string", "format": "uri" },
-              "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-              "format": { "type": "string" },
-              "size_mb": { "type": "number" }
+              "url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "format": {
+                "type": "string"
+              },
+              "size_mb": {
+                "type": "number"
+              }
             }
           }
         },
-        "role": { "type": "string" },
-        "notes": { "type": "string" }
+        "role": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        }
       },
       "additionalProperties": false
     }

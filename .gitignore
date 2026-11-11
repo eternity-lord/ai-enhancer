@@ -1,0 +1,68 @@
+# Build outputs
+build/
+out/
+dist/
+target/
+cmake-build-*/
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+*.lib
+*.a
+*.pdb
+*.ilk
+*.exp
+
+# Python / tooling
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / UI
+node_modules/
+.next/
+.turbo/
+.vite/
+coverage/
+*.tsbuildinfo
+
+# Native packaging
+*.apk
+*.aab
+*.msix
+*.app/
+*.dmg
+*.AppImage
+*.snap
+*.flatpak
+*.deb
+*.rpm
+
+# Models & datasets (large binaries: never in git; use release assets / HF)
+models/weights/
+models/**/*.onnx
+models/**/*.param
+models/**/*.bin
+models/**/*.pth
+models/**/*.safetensors
+models/**/*.gguf
+models/**/*.tflite
+datasets/
+!models/catalog.json
+
+# Local scratch
+tmp/
+temp/
+.cache/
+scratch/
+*.log
+.DS_Store
+Thumbs.db
+.env
+.env.*
+!.env.example

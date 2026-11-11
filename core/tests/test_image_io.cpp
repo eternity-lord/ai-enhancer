@@ -69,6 +69,58 @@ ATLAS_TEST(jpeg_roundtrip_is_close) {
   std::filesystem::remove(path);
 }
 
+ATLAS_TEST(png_alpha_is_preserved) {
+  atlas::ImageF32 img(6, 5, 4);
+  for (int y = 0; y < 5; ++y) {
+    for (int x = 0; x < 6; ++x) {
+      float* p = img.pixel(x, y);
+      p[0] = 0.8f;
+      p[1] = 0.2f;
+      p[2] = 0.4f;
+      p[3] = static_cast<float>(x + y) / 9.0f;
+    }
+  }
+  const auto path = temp_path("atlas_alpha_test.png");
+  std::string error;
+  CHECK(atlas::save_image(path.string(), img, 92, &error));
+
+  atlas::ImageF32 loaded;
+  CHECK(atlas::load_image(path.string(), &loaded, &error));
+  CHECK(loaded.channels() == 4);
+  if (loaded.channels() == 4) {
+    for (int y = 0; y < 5; ++y) {
+      for (int x = 0; x < 6; ++x) {
+        const float* p = loaded.pixel(x, y);
+        CHECK_NEAR(p[0], 0.8f, 1.0 / 255.0 + 1e-6);
+        CHECK_NEAR(p[3], static_cast<float>(x + y) / 9.0f, 1.0 / 255.0 + 1e-6);
+      }
+    }
+  }
+  std::filesystem::remove(path);
+}
+
+ATLAS_TEST(jpeg_drops_alpha_without_corrupting_color) {
+  atlas::ImageF32 img(16, 16, 4);
+  for (size_t i = 0; i < img.pixel_count(); ++i) {
+    img.data()[i * 4 + 0] = 0.9f;
+    img.data()[i * 4 + 1] = 0.1f;
+    img.data()[i * 4 + 2] = 0.1f;
+    img.data()[i * 4 + 3] = 0.0f;  // کاملاً شفاف
+  }
+  const auto path = temp_path("atlas_alpha_drop.jpg");
+  std::string error;
+  CHECK(atlas::save_image(path.string(), img, 95, &error));
+  atlas::ImageF32 loaded;
+  CHECK(atlas::load_image(path.string(), &loaded, &error));
+  CHECK(loaded.channels() == 3);
+  if (!loaded.empty()) {
+    // رنگ باید همان قرمز باشد، نه سیاه (خطای رایج: ضرب در آلفا).
+    CHECK_NEAR(loaded.pixel(0, 0)[0], 0.9f, 0.06);
+    CHECK_NEAR(loaded.pixel(0, 0)[1], 0.1f, 0.06);
+  }
+  std::filesystem::remove(path);
+}
+
 ATLAS_TEST(unsupported_extension_is_rejected) {
   const auto img = make_test_image(4, 4);
   const auto path = temp_path("atlas_io_test.xyz");

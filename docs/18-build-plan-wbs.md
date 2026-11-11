@@ -47,17 +47,19 @@ ai-enhancer/
 | P0-03 buffer | ✅ | crop/pad_reflect/clamp01 (crop فعلاً کپی) |
 | P0-04 errors/log | ✅ (حداقلی) | لاگ فایل چرخشی در P6 |
 | P0-05/P0-06 codec | ✅ (stb) | JPEG/PNG/BMP/TGA خواندن+نوشتن، ۸/۱۶ بیت؛ **مسیر مهاجرت** به libjpeg-turbo/libpng باز است |
-| P0-07 color | ✅ | `src/image/color.cpp`: sRGB↔خطی دقیق (IEC 61966-2-1)، آلفا دست‌نخورده، ۵ تست؛ اتصال به مسیر SR در P1-06 |
+| P0-07 color | ✅ | `src/image/color.cpp`: sRGB↔خطی دقیق (IEC 61966-2-1)، آلفا دست‌نخورده |
 | P0-08/P0-09 tiling/blend | ✅ / ✅ | کاشی با تست پوشش + دوخت raised-cosine با تست «تصویر ثابت» |
 | P0-10 classical backend | ✅ | Lanczos+unsharp؛ ۹٫۱ MP/s (۲ هسته) |
 | P0-11/12 context+CLI | ✅ | `version`/`devices`/`convert`/`enhance` + `--param/--weights/--tile/--overlap/--threads/--fp16` |
-| P0-13 tests | ✅ | **۳۵ تست**، صفر شکست |
+| P0-13 tests | ✅ | **۴۵ تست**، صفر شکست |
 | P1-01 ncnn backend | ✅ (CPU) | `ATLAS_WITH_NCNN=ON`; pad-to-8 + crop؛ Vulkan فلگ بعدی |
 | P1-02 model registry | ✅ (سبک) | `tools/fetch_models.py` با sha256 + مسیر آفلاین `--from-dir` |
 | P1-03 SR کاشی‌ای واقعی | ✅ | x4plus و animevideov3-x2/x3/x4 روی عکس واقعی اجرا شد |
 | P1-04 پلتفرم‌ها | ⏳ | Windows/Android در M1/M3 |
 | P1-05 EXIF orientation | ✅ | ۸ حالت EXIF + پارسر APP1 (فقط ۱۲۸KB اول فایل)، پیش‌فرض روشن |
-| P1-06 WebP/TIFF | ⏳ | بعد از EXIF؛ WebP نیاز به decoder اختصاصی دارد |
+| P1-06 ICC | ✅ | پروفایل ماتریسی/TRC (sRGB/P3/AdobeRGB) + iCCP در PNG و APP2 در JPEG؛ LUT-based رد می‌شود |
+| P1-07 آلفا | ✅ | PNG/TGA چهارکاناله، مسیر SR و بک‌اند ncnn آلفا را حفظ می‌کند |
+| P1-08 WebP/TIFF | ⏳ | WebP نیاز به decoder اختصاصی (libwebp) دارد |
 | P3-04 متریک‌ها | 🟡 (شروع) | PSNR/SSIM/MAE/max-abs در `core/src/metrics` + `atlas-cli eval`؛ LPIPS/DISTS و ArcFace هنوز نه |
 
 **Gate P0/P1 فعلی:** روی CPU سبز است. برای «روی iGPU» فقط باید ncnn با
@@ -119,6 +121,36 @@ PSNR مدل پایین‌تر است و این طبیعی است: GAN جزئیا
 **رنگ خطی:** `to_linear`/`to_srgb` اضافه شد تا عملیات نویز/شارپ روی نور خطی
 انجام شود. عمداً در مسیر مدل Real-ESRGAN وصل نشد، چون آن مدل با ورودی
 sRGB-encoded آموزش دیده و خطی‌کردن، خروجی را بی‌صدا تغییر می‌دهد.
+
+## ۱.۸ P1.6 — وفاداری رنگ و آلفا (ICC)
+
+این مرحله همان چیزی است که بین «خروجی شارپ ولی رنگ‌پریده» و «خروجی درست» فرق
+می‌گذارد.
+
+**مشکل واقعی:** عکس آیفون/مک در فضای **Display P3** ذخیره می‌شود. اگر آن را sRGB
+فرض کنیم، رنگ‌های اشباع (پوست، لباس، آسمان) کم‌جان می‌شوند، در حالی که هیچ
+پیکسلی «خراب» نشده است. کاربر این را «کیفیت بد» می‌بیند.
+
+**پیاده‌سازی:**
+
+| بخش | جزئیات |
+|---|---|
+| پارسر ICC | هدر + جدول تگ؛ پشتیبانی `rXYZ/gXYZ/bXYZ` و `curv`/`para` (نوع ۰..۴) |
+| تبدیل | LUT ۴۰۹۶ نمونه‌ای برای TRC + ماتریس ترکیبی «linear-device → linear-sRGB»؛ آلفا دست‌نخورده |
+| استخراج | `iCCP` در PNG (inflate با stb) و `ICC_PROFILE` در APP2 جفت JPEG (چندتکه) |
+| نقطهٔ سفید | `wtpt` + سازگاری Bradford → D65 (پروفایل‌های D50 مثل ProPhoto بدون این، رنگ‌افتادگی می‌دهند) |
+| امتناع | پروفایل LUT-based (A2B0) یا خراب → **تبدیل نمی‌کنیم** و در CLI می‌گوییم `unsupported (assumed sRGB)` |
+| کلید | `--no-color-manage` برای مقایسه/بازتولید دقیق بدون تبدیل |
+
+**عدد واقعی (تست end-to-end):** PNG با پروفایل ساختگی «sRGB کامل» → خروجی
+**بایت‌به‌بایت یکسان** (PSNR سقف ۹۹ dB). یعنی مسیر تبدیل، sRGB را دست‌نخورده
+برمی‌گرداند و رنگ را «دور نمی‌زند».
+
+**آلفا:** قبلاً `load_image` هر PNG را ۳ کاناله می‌کرد و شفافیت گم می‌شد. حالا
+PNG/TGA چهارکاناله می‌مانند، `sr_tiled` آلفا را با همان وزن‌ها blend می‌کند، و
+بک‌اند ncnn آلفا را **با Lanczos** (نه با مدل) بزرگ می‌کند تا لبه‌های شفافیت
+هاله نگیرند. JPEG/BMP آلفا ندارند؛ آلفا کنار گذاشته می‌شود بدون اینکه رنگ در
+آلفا ضرب شود (خطای رایج: خروجی سیاه).
 
 ## ۲. فاز P0 — اسکلت اجرایی (۱۵ نفر-روز)
 

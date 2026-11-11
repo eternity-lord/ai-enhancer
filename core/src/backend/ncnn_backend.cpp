@@ -13,6 +13,7 @@
 #include "net.h"
 
 #include "atlas/buffer.h"
+#include "atlas/image.h"
 
 namespace atlas {
 namespace {
@@ -35,13 +36,26 @@ class NcnnBackend final : public IBackend {
   bool ok() const override { return ok_; }
 
   ImageF32 run(const ImageF32& input) override {
-    if (!ok_ || input.empty() || input.channels() != 3) return ImageF32();
+    if (!ok_ || input.empty()) return ImageF32();
+    if (input.channels() != 3 && input.channels() != 4) return ImageF32();
+
+    // مدل RGB می‌خواهد؛ آلفا جدا و با Lanczos (نه با مدل) بزرگ می‌شود تا
+    // لبه‌های شفافیت «هالهٔ» مدل را نگیرند.
+    const bool has_alpha = input.channels() == 4;
+    ImageF32 rgb(input.width(), input.height(), 3);
+    for (size_t i = 0; i < input.pixel_count(); ++i) {
+      const float* s = input.data() + i * (has_alpha ? 4 : 3);
+      float* d = rgb.data() + i * 3;
+      d[0] = s[0];
+      d[1] = s[1];
+      d[2] = s[2];
+    }
 
     constexpr int kAlign = 8;
     const int pad_w = (kAlign - input.width() % kAlign) % kAlign;
     const int pad_h = (kAlign - input.height() % kAlign) % kAlign;
     const ImageF32 padded =
-        (pad_w || pad_h) ? pad_reflect(input, 0, 0, pad_w, pad_h) : input;
+        (pad_w || pad_h) ? pad_reflect(rgb, 0, 0, pad_w, pad_h) : rgb;
 
     ncnn::Mat in(padded.width(), padded.height(), 3);
     for (int c = 0; c < 3; ++c) {
@@ -70,14 +84,33 @@ class NcnnBackend final : public IBackend {
     const int want_w = input.width() * scale_;
     const int want_h = input.height() * scale_;
     if (out_w < want_w || out_h < want_h) return ImageF32();
-    if (out_w == want_w && out_h == want_h) return result;
 
-    ImageF32 cropped(want_w, want_h, 3);
-    for (int y = 0; y < want_h; ++y) {
-      std::memcpy(cropped.pixel(0, y), result.pixel(0, y),
-                  sizeof(float) * static_cast<size_t>(want_w) * 3);
+    ImageF32 cropped = result;
+    if (out_w != want_w || out_h != want_h) {
+      cropped = ImageF32(want_w, want_h, 3);
+      for (int y = 0; y < want_h; ++y) {
+        std::memcpy(cropped.pixel(0, y), result.pixel(0, y),
+                    sizeof(float) * static_cast<size_t>(want_w) * 3);
+      }
     }
-    return cropped;
+
+    if (!has_alpha) return cropped;
+
+    ImageF32 alpha_in(input.width(), input.height(), 1);
+    for (size_t i = 0; i < input.pixel_count(); ++i) {
+      alpha_in.data()[i] = input.data()[i * 4 + 3];
+    }
+    const ImageF32 alpha = resize_lanczos(alpha_in, want_w, want_h);
+    ImageF32 rgba(want_w, want_h, 4);
+    for (size_t i = 0; i < rgba.pixel_count(); ++i) {
+      const float* s = cropped.data() + i * 3;
+      float* d = rgba.data() + i * 4;
+      d[0] = s[0];
+      d[1] = s[1];
+      d[2] = s[2];
+      d[3] = alpha.data()[i];
+    }
+    return rgba;
   }
 
  private:

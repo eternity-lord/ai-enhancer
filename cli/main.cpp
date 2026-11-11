@@ -37,6 +37,7 @@ struct Options {
   bool fp16 = false;
   bool quiet = false;
   bool auto_orient = true;
+  bool color_manage = true;
   bool json = false;
   double min_psnr = -1.0;
   double min_ssim = -1.0;
@@ -63,6 +64,7 @@ void print_usage() {
       "  --quality N      JPEG quality 1..100 (default 92)\n"
       "  --quiet          no progress output\n"
       "  --no-auto-orient ignore EXIF orientation (default: apply it)\n"
+      "  --no-color-manage ignore the ICC profile (default: convert to sRGB)\n"
       "  --json           (eval) machine-readable JSON output\n"
       "  --min-psnr X     (eval) fail if PSNR < X dB\n"
       "  --min-ssim Y     (eval) fail if SSIM < Y\n",
@@ -88,6 +90,8 @@ bool parse_args(int argc, char** argv, Options* opt) {
     };
     if (arg == "--no-auto-orient") {
       opt->auto_orient = false;
+    } else if (arg == "--no-color-manage") {
+      opt->color_manage = false;
     } else if (arg == "--json") {
       opt->json = true;
     } else if (arg == "--min-psnr") {
@@ -132,15 +136,32 @@ bool parse_args(int argc, char** argv, Options* opt) {
   return true;
 }
 
-// خواندن با اعمال EXIF orientation؛ هر جای دیگری که تصویر را از دیسک می‌خوانیم
-// باید از این تابع استفاده کند، وگرنه یک مسیر بی‌سروصدا چرخش را از دست می‌دهد.
-bool load_oriented(const std::string& path, bool auto_orient, atlas::ImageF32* img,
-                   std::string* error, int* orientation_out = nullptr) {
-  if (!atlas::load_image(path, img, error)) return false;
-  const int o = auto_orient ? atlas::read_exif_orientation(path) : 0;
-  if (orientation_out) *orientation_out = o;
-  if (o > 1) *img = atlas::apply_orientation(*img, o);
+// خواندن + مدیریت رنگ + جهت. هر جای دیگری که تصویر را از دیسک می‌خوانیم باید
+// از این تابع استفاده کند، وگرنه یک مسیر بی‌سروصدا رنگ یا چرخش را از دست می‌دهد.
+bool load_ready(const std::string& path, bool auto_orient, bool color_manage,
+                atlas::ImageF32* img, atlas::ImageMeta* meta, std::string* error) {
+  if (!atlas::load_image_ex(path, img, meta, error)) return false;
+  if (!color_manage) {
+    // خواستهٔ کاربر: بدون تبدیل پروفایل. باید دوباره از دیسک بخوانیم چون
+    // load_image_ex تبدیل را انجام داده است.
+    if (!atlas::load_image(path, img, error)) return false;
+    if (meta) {
+      meta->icc_applied = false;
+      meta->icc_description = meta->has_icc_profile ? "ignored (ICC bypassed)" : "none";
+    }
+  }
+  if (meta && auto_orient && meta->orientation > 1) {
+    *img = atlas::apply_orientation(*img, meta->orientation);
+  }
   return true;
+}
+
+void print_color_line(const atlas::ImageMeta& meta) {
+  if (meta.icc_applied) {
+    std::printf("color : %s -> sRGB\n", meta.icc_description.c_str());
+  } else if (meta.has_icc_profile) {
+    std::printf("color : %s\n", meta.icc_description.c_str());
+  }
 }
 
 }  // namespace
@@ -182,13 +203,15 @@ int main(int argc, char** argv) {
     }
     atlas::ImageF32 a;
     atlas::ImageF32 b;
+    atlas::ImageMeta meta_a;
+    atlas::ImageMeta meta_b;
     std::string error;
-    if (!load_oriented(eopt.in_path, eopt.auto_orient, &a, &error)) {
+    if (!load_ready(eopt.in_path, eopt.auto_orient, eopt.color_manage, &a, &meta_a, &error)) {
       std::fprintf(stderr, "cannot load %s: %s\n", eopt.in_path.c_str(), error.c_str());
       atlas_destroy(ctx);
       return 1;
     }
-    if (!load_oriented(eopt.out_path, eopt.auto_orient, &b, &error)) {
+    if (!load_ready(eopt.out_path, eopt.auto_orient, eopt.color_manage, &b, &meta_b, &error)) {
       std::fprintf(stderr, "cannot load %s: %s\n", eopt.out_path.c_str(), error.c_str());
       atlas_destroy(ctx);
       return 1;
@@ -229,8 +252,8 @@ int main(int argc, char** argv) {
     }
     atlas::ImageF32 img;
     std::string error;
-    int orientation = 0;
-    if (!load_oriented(copt.in_path, copt.auto_orient, &img, &error, &orientation)) {
+    atlas::ImageMeta meta;
+    if (!load_ready(copt.in_path, copt.auto_orient, copt.color_manage, &img, &meta, &error)) {
       std::fprintf(stderr, "cannot load %s: %s\n", copt.in_path.c_str(), error.c_str());
       atlas_destroy(ctx);
       return 1;
@@ -242,8 +265,9 @@ int main(int argc, char** argv) {
     }
     if (!copt.quiet) {
       std::printf("%dx%d (%d ch, exif=%s) -> %s\n", img.width(), img.height(), img.channels(),
-                  orientation > 0 ? std::to_string(orientation).c_str() : "none",
+                  meta.orientation > 0 ? std::to_string(meta.orientation).c_str() : "none",
                   copt.out_path.c_str());
+      print_color_line(meta);
     }
     atlas_destroy(ctx);
     return 0;
@@ -316,8 +340,8 @@ int main(int argc, char** argv) {
 
   atlas::ImageF32 src;
   std::string error;
-  int orientation = 0;
-  if (!load_oriented(opt.in_path, opt.auto_orient, &src, &error, &orientation)) {
+  atlas::ImageMeta meta;
+  if (!load_ready(opt.in_path, opt.auto_orient, opt.color_manage, &src, &meta, &error)) {
     std::fprintf(stderr, "cannot load %s: %s\n", opt.in_path.c_str(), error.c_str());
     atlas_destroy(ctx);
     return 1;
@@ -331,9 +355,10 @@ int main(int argc, char** argv) {
   if (!opt.quiet) {
     std::printf("input : %dx%d (%.2f MP)%s\n", src.width(), src.height(),
                 src.pixel_count() / 1e6,
-                orientation > 1 ? (std::string(" [exif orientation ") +
-                                  std::to_string(orientation) + "]").c_str()
-                                : "");
+                meta.orientation > 1 ? (std::string(" [exif orientation ") +
+                                        std::to_string(meta.orientation) + "]").c_str()
+                                     : "");
+    print_color_line(meta);
     std::printf("model : %s (scale %d, threads %d)\n", backend->name(), backend->scale(),
                 threads);
     std::printf("plan  : tile=%d overlap=%d\n", sr.tile, sr.overlap);

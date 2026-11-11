@@ -38,22 +38,59 @@ ai-enhancer/
 
 ---
 
-## ۱.۵ وضعیت پیشرفت (به‌روزرسانی ۲۰۲۶-۱۱-۱۱)
+## ۱.۵ وضعیت پیشرفت (به‌روزرسانی ۲۰۲۶-۱۱-۱۱، پایان P1)
 
 | مورد | وضعیت | یادداشت |
 |---|---|---|
-| P0-01 CMake | ✅ انجام شد | بدون وابستگی خارجی، گزینه‌های CLI/TESTS |
+| P0-01 CMake | ✅ انجام شد | بدون وابستگی سیستمی؛ گزینه‌های `ATLAS_WITH_NCNN`, `ATLAS_BUILD_CLI/TESTS` |
 | P0-02 types | ✅ | `ImageF32`, `Rect`, `TilePlan`, `ErrorCode` |
 | P0-03 buffer | ✅ | crop/pad_reflect/clamp01 (crop فعلاً کپی) |
 | P0-04 errors/log | ✅ (حداقلی) | لاگ فایل چرخشی در P6 |
-| P0-05/P0-06 codec | ⏳ | موقتاً PPM؛ libjpeg-turbo/libpng بعدی |
-| P0-07 color | ⏳ | تبدیل خطی در P1 |
-| P0-08/P0-09 tiling/blend | ✅ / ⏳ | کاشی با تست پوشش؛ دوخت در P1 |
-| P0-10 classical backend | ✅ | Lanczos+unsharp، ~۹ MP/s روی CPU تک‌رشته |
-| P0-11/12 context+CLI | ✅ (حداقلی) | version/devices/enhance |
-| P0-13 tests | ✅ | ۱۱ تست، صفر شکست |
+| P0-05/P0-06 codec | ✅ (stb) | JPEG/PNG/BMP/TGA خواندن+نوشتن، ۸/۱۶ بیت؛ **مسیر مهاجرت** به libjpeg-turbo/libpng باز است |
+| P0-07 color | ⏳ | خطی‌سازی sRGB در P1-06 |
+| P0-08/P0-09 tiling/blend | ✅ / ✅ | کاشی با تست پوشش + دوخت raised-cosine با تست «تصویر ثابت» |
+| P0-10 classical backend | ✅ | Lanczos+unsharp؛ ۹٫۱ MP/s (۲ هسته) |
+| P0-11/12 context+CLI | ✅ | `version`/`devices`/`convert`/`enhance` + `--param/--weights/--tile/--overlap/--threads/--fp16` |
+| P0-13 tests | ✅ | **۱۹ تست**، صفر شکست |
+| P1-01 ncnn backend | ✅ (CPU) | `ATLAS_WITH_NCNN=ON`; pad-to-8 + crop؛ Vulkan فلگ بعدی |
+| P1-02 model registry | ✅ (سبک) | `tools/fetch_models.py` با sha256 + مسیر آفلاین `--from-dir` |
+| P1-03 SR کاشی‌ای واقعی | ✅ | x4plus و animevideov3-x2/x3/x4 روی عکس واقعی اجرا شد |
+| P1-04 پلتفرم‌ها | ⏳ | Windows/Android در M1/M3 |
 
-**Gate P0 فعلاً:** روی CPU سبز است؛ برای «روی iGPU» باید P1-01 (ncnn) اضافه شود.
+**Gate P0/P1 فعلی:** روی CPU سبز است. برای «روی iGPU» فقط باید ncnn با
+`-DNCNN_VULKAN=ON` کامپایل و `--backend ncnn` روی دستگاه Vulkan اجرا شود (کد
+آماده است، سندباکس Vulkan ندارد).
+
+**کدک — چرا stb و بعدش چه؟** یا libjpeg-turbo/libpng در سندباکس هدر سیستمی
+نداشتند و «بدون وابستگی» برای ویندوز/موبایل مهم‌تر بود؛ stb (MIT/PD) هر دو کار
+را در دو هدر انجام می‌دهد. اما decode تک‌رشته‌ای stb برای فایل‌های ۵۰ مگابایتی
+کند است، پس مسیر مهاجرت در P1-05 این است: **decode** به libjpeg-turbo/libpng
+(با fallback به stb)، **encode** با کیفیت کنترل‌شده باقی می‌ماند.
+
+## ۱.۶ اعداد واقعی P1 (سندباکس: ۲ هستهٔ CPU، بدون GPU، بدون Vulkan)
+
+| مسیر | ورودی → خروجی | زمان | توان |
+|---|---|---|---|
+| classical (Lanczos+unsharp) | 3.00 MP → 12.00 MP | 1.32 s | 9.11 MP/s |
+| ncnn `realesrgan-x4plus` | 1024×768 → 4096×3072 (12.58 MP) | 308.5 s | 0.041 MP/s |
+| ncnn `realesr-animevideov3-x2` | 1024×768 → 2048×1536 (3.15 MP) | 6.6 s | 0.48 MP/s |
+
+نتیجهٔ عملی: مدل ۳۳ مگابایتی x4plus روی CPU **۱۲ برابر** کندتر از مدل سبک
+animevideov3 است؛ پس انتخاب خودکار مدل باید بر اساس «بودجهٔ زمان کاربر» و
+«وجود GPU» باشد، نه یک مدل ثابت. روی Vulkan، x4plus در حد چند ثانیه برای همان
+تصویر است (هدف P1-01).
+
+### کیفیت (PSNR نسبت به مرجع، فقط به‌عنوان شاهد نه معیار)
+
+| تصویر | بازسازی | classical | x4plus |
+|---|---|---|---|
+| `00003.png` (۵۱۲×۲۵۶، از ۴× box) | 4× | **26.69 dB** | 20.77 dB |
+| پرترهٔ واقعی (۵۰۰×۷۵۰، از ۴× box) | 4× | **37.97 dB** | 29.85 dB |
+
+PSNR مدل پایین‌تر است و این طبیعی است: GAN جزئیات را «می‌سازد» و خطای پیکسلی
+بیشتر می‌شود. اما در پرتره، خروجی x4plus چشمان را اشباع و پوست را صاف می‌کند —
+یعنی همان «زیباسازی/توهم» که در `docs/14` ممنوع شده است. نتیجه: **PSNR تنها
+معیار نیست** و برای چهره باید دروازهٔ هویت (ArcFace) + بررسی آرتیفکت حاکم باشد.
 
 ## ۲. فاز P0 — اسکلت اجرایی (۱۵ نفر-روز)
 
@@ -63,11 +100,11 @@ ai-enhancer/
 | P0-02 | `include/atlas/types.h` | `ImageF32`, `Rect`, `Tensor`, `Error` | بدون وابستگی خارجی | unit | ۰٫۵ | — |
 | P0-03 | `src/image/buffer.cpp` | تخصیص/کپی/برش، alignment | page-aligned، بدون copy در برش | unit + ASAN | ۱ | P0-02 |
 | P0-04 | `src/util/errors.cpp`, `log.cpp` | کدهای خطا، لاگ چرخشی | `E_OOM`, `E_MODEL`, … | unit | ۰٫۵ | — |
-| P0-05 | `src/io/decode.cpp` | JPEG/PNG/WebP/BMP + EXIF orientation | libjpeg-turbo/libpng/libwebp | تست ۲۰ فایل | ۲ | P0-03 |
-| P0-06 | `src/io/encode.cpp` | JPEG/PNG/WebP/TIFF + کیفیت | ۸/۱۶ بیت | round-trip PSNR>۴۵ | ۲ | P0-05 |
+| P0-05 | `src/io/image_io.cpp` | JPEG/PNG/BMP/TGA (+WebP بعدی) + EXIF | **stb** (vendored) → مهاجرت به libjpeg-turbo/libpng در P1-05 | تست ۲۰ فایل | ۲ | P0-03 |
+| P0-06 | `src/io/image_io.cpp` | JPEG/PNG (BMP/TGA) + کیفیت | ۸/۱۶ بیت، کیفیت ۱–۱۰۰ | round-trip PSNR>۴۵ (PNG بی‌اتلاف) | ۲ | P0-05 |
 | P0-07 | `src/image/color.cpp` | خطی‌سازی sRGB، LittleCMS | `to_linear/from_linear` | مقایسه با مرجع | ۱٫۵ | P0-03 |
 | P0-08 | `src/image/tiling.cpp` | کاشی‌بندی + overlap + reflect | `plan_grid`, `iter_tiles` | تست مرزها | ۱٫۵ | P0-02 |
-| P0-09 | `src/image/blend.cpp` | دوخت raised-cosine | بدون seam | تست SSIM ناحیهٔ مرز | ۱ | P0-08 |
+| P0-09 | `src/stages/sr.cpp` | دوخت raised-cosine | بدون seam | تست «تصویر ثابت» + مقایسهٔ کاشی‌ای/یک‌تکه | ۱ | P0-08 |
 | P0-10 | `src/backend/backend.cpp` + `classical.cpp` | رابط `IBackend` + مسیر کلاسیک (Lanczos+unsharp) | fallback همیشه موجود | unit | ۲ | P0-02 |
 | P0-11 | `src/api/context.cpp`, `devices.cpp` | ساخت context + probe دستگاه (stub) | C ABI | unit | ۱ | P0-10 |
 | P0-12 | `cli/main.cpp`, `args.cpp` | `atlas-cli enhance --scale 4 --preset natural` | خروجی + کد خطا | e2e با PPM/PNG | ۱٫۵ | P0-11 |
@@ -255,7 +292,8 @@ ai-enhancer/
 
 **تاریخ:** ۲۰۲۶-۱۱-۱۱ · **فایل:** `docs/18-build-plan-wbs.md`
 
-- **آنچه مسلم شد:** مسیر P0→P1 با ۱۰ روز کار، یک دموی واقعی می‌دهد؛ P4 (Reference) بزرگ‌ترین بلوک و بزرگ‌ترین ریسک است.
-- **تصمیم:** ارزیابی (P3-04) قبل از P4 ساخته می‌شود تا بدون عدد وارد Reference نشویم.
-- **ریسک:** تخمین PDها برای تیم آشناست؛ اگر تیم تازه‌کار باشد ۳۰–۵۰٪ بافر لازم است.
-- **قدم بعدی:** شروع P0-01 و ساخت اسکلت واقعی کد + اولین CLI.
+- **آنچه مسلم شد:** مسیر P0→P1 در عمل یک دموی واقعی داد: خروجی ۴× از یک عکس JPEG واقعی، با کدک واقعی و مدل واقعی (نه PPM، نه Lanczos).
+- **آنچه غافلگیر کرد:** روی CPU بدون GPU، مدل سنگین ۱۲ برابر کندتر از مدل سبک است؛ این عدد باید در UI به کاربر نشان داده شود، وگرنه «کند است» به‌عنوان باگ گزارش می‌شود.
+- **تصمیم:** ارزیابی (P3-04) قبل از P4 ساخته می‌شود؛ و P3 حالا یک شاهد عینی دارد: مدل عمومی روی چهره، هویت را خراب می‌کند حتی وقتی «قشنگ‌تر» است.
+- **ریسک:** تخمین PDها برای تیم آشناست؛ اگر تیم تازه‌کار باشد ۳۰–۵۰٪ بافر لازم است. همچنین مسیر stb→libjpeg-turbo یک بدهی فنی است که نباید تا M2 بماند.
+- **قدم بعدی:** Vulkan (P1-01) و سپس pipeline چهره با دروازهٔ هویت.

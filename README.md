@@ -68,6 +68,7 @@
 - [x] **M0 — تحقیق و طراحی**: تحلیل کامل سایت، علم ماجرا، مشخصات، معماری، نقشهٔ راه.
 - [x] **M0.5 — نقشهٔ کیفیت برای چهرهٔ واقعی**: نوار کیفیت عددی، دروازهٔ هویت (ArcFace)، حالت Reference-locked، پروتکل ارزیابی، WBS فایل‌به‌فایل.
 - [x] **P0 — اسکلت اجرایی**: هستهٔ C++20 + کاشی‌بندی + مسیر کلاسیک + CLI + ۱۱ تست (بدون وابستگی خارجی).
+- [x] **P1 (این PR) — مسیر واقعی**: کدک واقعی JPEG/PNG/BMP/TGA (stb، vendored) + بک‌اند ncnn (CPU، آمادهٔ Vulkan) + موتور SR کاشی‌ای با دوخت raised-cosine + `tools/fetch_models.py` + ۱۹ تست. جزئیات و اعداد: [docs/18 §۱.۵–۱.۶](docs/18-build-plan-wbs.md).
 - [ ] **M1 — MVP ویندوز**: Tauri + هستهٔ ncnn-Vulkan + بزرگ‌نمایی ۲x/۴x با tiling + صف دسته‌ای + پریست‌ها.
 
 > **تمرکز نسخهٔ ۱.۰:** «قوی‌ترین برای عکس واقعی با چهرهٔ واقعی» — یعنی هویت حفظ شود، بافت طبیعی بماند و هیچ زیباسازی/توهمی رخ ندهد. جزئیات: [docs/14](docs/14-masterplan-real-photo-face.md).
@@ -81,16 +82,22 @@
 ## ۵) اجرا (P0 — اسکلت قابل اجرا)
 
 ```bash
-cmake -S core -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j
+# ۱) مسیر کلاسیک (بدون هیچ وابستگی خارجی، همه‌جا کار می‌کند)
+cmake -S core -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j
+./build/atlas-cli enhance photo.jpg out.png --scale 2 --sharpen 20
+./build/atlas-tests        # ۱۹ تست
 
-./build/atlas-cli version
-./build/atlas-cli devices
-./build/atlas-cli enhance in.ppm out.ppm --scale 2 --sharpen 20
-./build/atlas-tests        # ۱۱ تست
+# ۲) مسیر مدل واقعی (ncnn؛ روی CPU هم اجرا می‌شود، با GPU چند برابر سریع‌تر)
+python3 tools/fetch_models.py --from-wheel        # وزن‌ها هرگز در گیت نیستند
+cmake -S core -B build-ncnn -DCMAKE_BUILD_TYPE=Release \
+      -DATLAS_WITH_NCNN=ON -DCMAKE_PREFIX_PATH=/path/to/ncnn-install
+cmake --build build-ncnn -j
+./build-ncnn/atlas-cli enhance photo.jpg out4x.png \
+      --param models/weights/realesrgan-x4plus.param \
+      --weights models/weights/realesrgan-x4plus.bin --scale 4 --tile 256 --overlap 32
 ```
 
-> ورودی فعلاً PPM است؛ کدک‌های JPEG/PNG در P0-05/06 و مدل واقعی SR در P1 اضافه می‌شوند.
+> کدک‌ها: stb (JPEG/PNG/BMP/TGA، ۸ و ۱۶ بیت) — vendored و بدون وابستگی سیستمی؛ مسیر مهاجرت به libjpeg-turbo/libpng در [docs/18](docs/18-build-plan-wbs.md) P0-05/06.
 > جزئیات: [core/README.md](core/README.md) · دستورهای CI/بسته‌بندی: [docs/12](docs/12-build-test.md).
 
 ## ۶) لایسنس

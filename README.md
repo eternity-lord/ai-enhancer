@@ -48,6 +48,7 @@
 | [docs/18-build-plan-wbs.md](docs/18-build-plan-wbs.md) | WBS فایل‌به‌فایل + ترتیب ۱۰ روز اول |
 | [docs/19-identity-gate.md](docs/19-identity-gate.md) | دروازهٔ هویت + مجموعهٔ طلایی: کد، کالیبراسیون، محدودیت‌ها |
 | [docs/20-degrade-restore.md](docs/20-degrade-restore.md) | حذف نویز و آرتیفکت JPEG پیش از بزرگ‌نمایی: اعداد و محدودیت‌ها |
+| [docs/21-desktop-ui.md](docs/21-desktop-ui.md) | پوستهٔ دسکتاپ با تم Liquid Glass: معماری، کنترل‌ها، محدودیت‌ها |
 | [docs/notes/JOURNAL.md](docs/notes/JOURNAL.md) | دفتر یادداشت‌های مهندسی (هر فایل یک ورودی) |
 | [docs/research/sources.md](docs/research/sources.md) | منابع و تاریخ دسترسی (شفافیت پژوهشی) |
 | [models/catalog.json](models/catalog.json) | کاتالوگ ماشین‌خوان مدل‌ها (وظیفه، فرمت، لایسنس، تیر) |
@@ -76,7 +77,8 @@
 - [x] **P1.7 — پایان P1**: WebP (اختیاری)، انتقال EXIF، برچسب sRGB در خروجی، `--gpu`؛ **۴۹ تست**. جمع‌بندی: [docs/18 §۱.۱۰](docs/18-build-plan-wbs.md).
 - [x] **P3-01/P3-04 — دروازهٔ هویت + مجموعهٔ طلایی**: پروکسی ساختاری (چیدمان + HOG + رنگ) با آستانهٔ مستقل از ArcFace، `atlas-cli gate` و `atlas-cli eval-set`، پذیرش خودکار مطابق docs/17؛ **۶۱ تست**. جزئیات و اعداد: [docs/19](docs/19-identity-gate.md).
 - [x] **P2 — عکس خراب**: deblock شرطی ۸×۸ + NLM (patch ۳×۳/search ۵×۵) قبل از SR، با تشخیص خودکار نویز/شبکه؛ **+۴٫۱۷ dB PSNR** روی ورودی خراب و **۶۱ → ۷۱ تست**. جزئیات: [docs/20](docs/20-degrade-restore.md).
-- [ ] **M1 — MVP ویندوز**: Tauri + هستهٔ ncnn-Vulkan + بزرگ‌نمایی ۲x/۴x با tiling + صف دسته‌ای + پریست‌ها.
+- [x] **M1-lite — پوستهٔ دسکتاپ**: پنجرهٔ شیشه‌ای (Liquid Glass) با کتابخانهٔ تصاویر، مقایسهٔ قبل/پس، پاک‌سازی و بزرگ‌نمایی واقعی روی `atlas-cli`؛ ۷ تست سرور + ۱۸ بررسی DOM. جزئیات: [docs/21](docs/21-desktop-ui.md).
+- [ ] **M1 — MVP ویندوز** (بستهٔ نیتیو Tauri + صف دسته‌ای): Tauri + هستهٔ ncnn-Vulkan + بزرگ‌نمایی ۲x/۴x با tiling + صف دسته‌ای + پریست‌ها.
 
 > **محدودیت صادقانه:** دروازهٔ فعلی پروکسی ساختاری است، نه ArcFace؛ برای گرفتن رگرسیون در CI ساخته شده و «همان شخص» را بیومتریک ثابت نمی‌کند. ArcFace در P3-02 وصل می‌شود.
 
@@ -99,6 +101,10 @@ cmake -S core -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j
 ./build/atlas-cli gate original.png restored.png --face 120,90,256,256
 ./build/atlas-cli eval-set eval/golden/manifest.tsv
 ./build/atlas-cli restore photo.jpg clean.png      # حذف نویز/JPEG بدون تغییر ابعاد
+
+# ۳) پوستهٔ گرافیکی (محلی، آفلاین)
+python3 desktop/server.py --port 8000            # → http://localhost:8000
+python3 desktop/test_server.py                   # ۷ تست سرور
 ./build/atlas-cli enhance photo.jpg out2x.png --scale 2   # پاک‌سازی خودکار قبل از SR
 
 # ۲) مسیر مدل واقعی (ncnn؛ روی CPU هم اجرا می‌شود، با GPU چند برابر سریع‌تر)

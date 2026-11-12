@@ -1,0 +1,15 @@
+{
+  "name": "atlas-desktop-shell",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Atlas desktop shell (Liquid Glass) — dev tooling only; the app itself needs no build step.",
+  "type": "module",
+  "scripts": {
+    "start": "python3 server.py --port 8000",
+    "test:server": "python3 test_server.py",
+    "test:dom": "node web/test_dom.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.1"
+  }
+}

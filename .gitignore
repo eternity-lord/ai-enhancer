@@ -67,3 +67,6 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# Desktop shell local state
+desktop/.data/

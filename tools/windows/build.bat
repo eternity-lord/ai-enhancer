@@ -37,31 +37,34 @@ if defined DO_INSTALL goto :install
 goto :find_cmake
 
 :install
+if not exist "%~dp0install-msvc.ps1" goto :install_winget_fallback
+echo [*] running install-msvc.ps1 (winget force, then the official bootstrapper) ...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0install-msvc.ps1"
+if errorlevel 1 goto :install_failed
+goto :install_cmake
+
+:install_winget_fallback
 where winget >nul 2>&1
-if errorlevel 1 (
-  echo [x] winget not found.
-  echo     Install CMake:  py -m pip install --upgrade cmake
-  echo     Install MSVC :  https://visualstudio.microsoft.com/downloads/  ^(Build Tools^)
-  goto :end_error
-)
+if errorlevel 1 goto :no_cmake
+echo [*] installing CMake and Build Tools with winget ...
+winget install --id Kitware.CMake -e --accept-source-agreements --accept-package-agreements
+winget install Microsoft.VisualStudio.2022.BuildTools --override "--wait --quiet --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended" --accept-source-agreements --accept-package-agreements
+
+:install_cmake
 where cmake >nul 2>&1
-if errorlevel 1 (
-  echo [*] installing CMake ...
-  winget install --id Kitware.CMake -e --accept-source-agreements --accept-package-agreements
-) else (
-  echo [*] CMake already present, skipping.
-)
-call :has_msvc
-if defined HAVE_MSVC (
-  echo [*] MSVC toolchain already present, skipping Build Tools.
-  goto :find_cmake
-)
-echo [*] installing Visual Studio Build Tools with the C++ workload ...
-echo     this is a 2-3 GB download; a UAC prompt will appear.
-winget install Microsoft.VisualStudio.2022.BuildTools --override "--quiet --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended" --accept-source-agreements --accept-package-agreements
-echo.
-echo [i] if the install just finished, open a NEW window and run: tools\windows\build.bat
+if not errorlevel 1 goto :find_cmake
+if exist "%ProgramFiles%\CMake\bin\cmake.exe" goto :find_cmake
+where winget >nul 2>&1
+if errorlevel 1 goto :find_cmake
+echo [*] CMake still missing; installing it with winget ...
+winget install --id Kitware.CMake -e --accept-source-agreements --accept-package-agreements
 goto :find_cmake
+
+:install_failed
+echo [x] toolchain setup failed; see the messages above.
+echo     Smaller alternative ^(no Visual Studio, about 150 MB^):
+echo       powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0install-msvc.ps1" -MinGW
+goto :end_error
 
 :find_cmake
 set "CMAKE_CMD="

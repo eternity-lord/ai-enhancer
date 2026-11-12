@@ -334,3 +334,26 @@
 - **صادقانه:** این فایل‌ها را در لینوکس نمی‌توان اجرا کرد؛ درستی‌شان را روی ویندوز
   کاربر می‌سنجیم. به‌همین دلیل خروجی‌ها و پیام‌های خطا را طوری نوشتم که اگر جایی
   شکست، دقیقاً بگوید کدام مرحله.
+
+---
+
+## ورودی ۱۹ — ویندوز، دور سوم: بستهٔ ثبت‌شده بدون workload
+
+**تاریخ:** ۲۰۲۶-۱۱-۱۱ · **فایل‌ها:** `tools/windows/install-msvc.ps1`، `tools/windows/build.bat`، `tools/windows/README.md`، `core/CMakeLists.txt`
+
+- **خطای واقعی کاربر:** `winget install ... BuildTools` گفت «Found an existing package
+  already installed. No available upgrade found» و بعد CMake گفت
+  `Generator Visual Studio 17 2022 could not find any instance of Visual Studio`.
+  یعنی بستهٔ Build Tools در فهرست ویندوز ثبت است ولی **workload C++** نصب نشده؛
+  winget هم چیزی برای ارتقا نمی‌بیند و دست به کار نمی‌شود.
+- **درس:** «نصب بودن بسته» با «نصب بودن ابزار» یکی نیست. باید وجود
+  `Microsoft.VisualStudio.Component.VC.Tools.x86.x64` را با `vswhere` بررسی کرد،
+  نه فهرست winget را.
+- **چه شد:** `install-msvc.ps1` سه‌مرحله‌ای: (۱) `winget --force` با workload،
+  (۲) بوت‌استرپر رسمی `aka.ms/vs/17/release/vs_buildtools.exe` با `--add ...VCTools`،
+  (۳) اگر هیچ‌کدام نشد، پیشنهاد مسیر سبک MinGW. در هر مرحله بعد از نصب،
+  `vswhere` دوباره چک می‌شود و خروجی صفر/یک برمی‌گردد.
+- **بهبود جانبی:** `core/CMakeLists.txt` حالا `Threads::Threads` را لینک می‌کند،
+  وگرنه ساخت با MinGW در مرحلهٔ لینک `std::thread` می‌شکست.
+- **صادقانه:** `.ps1` و `.bat` در لینوکس اجرا نشدند؛ فقط منطق و پیام‌ها بررسی شده‌اند.
+  تست‌های هسته روی لینوکس سبز ماندند (۷۱/۷۱).

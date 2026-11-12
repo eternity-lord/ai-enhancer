@@ -17,6 +17,11 @@ option(ATLAS_BUILD_TESTS "Build unit tests" ON)
 option(ATLAS_WITH_NCNN "Build the ncnn inference backend" OFF)
 option(ATLAS_WITH_WEBP "Enable the WebP codec when libwebp is available" ON)
 
+# std::thread: روی لینوکس pthread لازم است، روی MinGW پرچم -pthread، روی MSVC بی‌اثر.
+# بدون این، build با MinGW در مرحلهٔ لینک می‌شکند (winpthreads).
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
 add_library(atlas-core STATIC
   src/util/log.cpp
   src/util/errors.cpp
@@ -41,6 +46,7 @@ add_library(atlas-core STATIC
 )
 
 target_include_directories(atlas-core PUBLIC include)
+target_link_libraries(atlas-core PUBLIC Threads::Threads)
 target_include_directories(atlas-core PRIVATE third_party/stb)
 target_compile_options(atlas-core PRIVATE
   $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>

@@ -49,6 +49,11 @@ cmake --build build -j
 tools\windows\build.bat
 tools\windows\run-desktop.bat
 
+# اگر کامپایلر C++ نبود یا نصب Visual Studio نیمه‌کاره بود:
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\windows\install-msvc.ps1
+# راه سبک بدون Visual Studio (MinGW + Ninja):
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\windows\install-msvc.ps1 -MinGW
+
 # ویندوز — دستی
 cmake -S core -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release -j

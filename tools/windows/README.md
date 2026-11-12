@@ -74,6 +74,57 @@ winget install Microsoft.VisualStudio.2022.BuildTools --override "--quiet --wait
 tools\windows\build.bat --clean
 ```
 
+### اگر winget می‌گوید «نصب است» ولی CMake می‌گوید «could not find any instance of Visual Studio»
+
+این خطا یعنی بستهٔ Build Tools در فهرست ویندوز ثبت شده، اما **workload «C++»**
+نصب نشده یا نصب نیمه‌کاره مانده است. `winget install` دوباره کاری نمی‌کند
+(«Found an existing package already installed») و باید با `--force` یا با
+بوت‌استرپر رسمی نصب شود:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\windows\install-msvc.ps1
+```
+
+این اسکریپت اول `winget --force` را امتحان می‌کند، بعد بوت‌استرپر رسمی مایکروسافت
+را دانلود و با `--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended`
+اجرا می‌کند، و در پایان با `vswhere` بررسی می‌کند که واقعاً نصب شده باشد.
+
+همان کار به‌صورت دستی:
+
+```powershell
+$bt = "$env:TEMP\vs_buildtools.exe"
+Invoke-WebRequest -Uri https://aka.ms/vs/17/release/vs_buildtools.exe -OutFile $bt
+Start-Process -Wait -FilePath $bt -ArgumentList '--quiet','--wait','--norestart','--nocache','--add','Microsoft.VisualStudio.Workload.VCTools','--includeRecommended'
+
+# بررسی واقعی:
+& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+```
+
+اگر دستور آخر یک مسیر چاپ کرد، کار تمام است:
+
+```bat
+tools\windows\build.bat --clean
+```
+
+### راه سبک: MinGW به‌جای Visual Studio (حدود ۱۵۰ مگابایت)
+
+اگر Visual Studio سنگین است یا نصبش مشکل دارد، GCC کافی است:
+
+```powershell
+winget install --id BrechtSanders.WinLibs.POSIX.UCRT -e
+winget install --id Ninja-build.Ninja -e
+```
+
+بعد یک پنجرهٔ تازه باز کنید و:
+
+```bat
+tools\windows\build.bat --clean
+```
+
+اسکریپت `g++` و `ninja` را می‌بیند و با `-G Ninja` می‌سازد. (CMakeLists پروژه حالا
+`Threads::Threads` را لینک می‌کند تا `std::thread` روی MinGW هم بدون خطای لینک
+کار کند.)
+
 ### مسیر پروژه
 
 پوشه‌ای مثل `Downloads\ai-enhancer-main (1)\...` پرانتز و فاصله دارد. CMake با
@@ -132,6 +183,8 @@ build\Release\atlas-cli.exe enhance photo.jpg out4x.png --scale 4
 | `-- Building for: NMake Makefiles` و بعد `'nmake' ... no such file or directory` | کامپایلر C++ نیست؛ CMake به NMake افتاده | بخش ۱-ب، بعد `build.bat --clean` |
 | `No CMAKE_CXX_COMPILER could be found` | کامپایلر نیست | بخش ۱-ب (Build Tools + workload VCTools) |
 | `generator ... does not match the cache` | `build\` با ژنراتور دیگری ساخته شده | `build.bat --clean` |
+| `could not find any instance of Visual Studio` | بستهٔ Build Tools ثبت شده ولی workload «C++» نصب نیست | `install-msvc.ps1` (بخش بعد) یا `build.bat --install` |
+| `winget ... No available upgrade found` | همان حالت بالا؛ winget چیزی برای ارتقا نمی‌بیند | `winget ... --force` یا بوت‌استرپر رسمی |
 | `error C2039 ... C++20` | MSVC قدیمی | Visual Studio 2022 (۱۷٫۶ یا بالاتر) |
 | ساخت است ولی `atlas-cli.exe` پیدا نمی‌شود | خروجی جای دیگری است | `dir /s build\atlas-cli.exe` و با `--run` تست کنید |
 | مرورگر باز می‌شود ولی «atlas-cli پیدا نشد» | اجرای سرور از پوشهٔ دیگر | `run-desktop.bat` را از ریشهٔ ریپو اجرا کنید یا `ATLAS_CLI` را ست کنید |

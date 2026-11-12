@@ -99,6 +99,9 @@
 winget install --id Kitware.CMake -e
 winget install Microsoft.VisualStudio.2022.BuildTools --override "--quiet --wait --add Microsoft.VisualStudio.Workload.VCTools"
 
+:: اگر کامپایلر C++ نبود، یا winget گفت «نصب است» ولی CMake پیدایش نکرد:
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\windows\install-msvc.ps1
+
 :: بعد در یک پنجرهٔ تازه (CMD یا PowerShell):
 tools\windows\build.bat        :: پیکربندی + ساخت + اجرای ۷۱ تست هسته
 tools\windows\run-desktop.bat  :: باز کردن پوستهٔ دسکتاپ روی http://localhost:8000

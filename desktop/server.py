@@ -40,18 +40,33 @@ MAX_UPLOAD_BYTES = 80 * 1024 * 1024
 CLI_TIMEOUT = 600
 
 
-def find_cli() -> Path | None:
-    """مسیر atlas-cli؛ اول متغیر محیطی، بعد buildهای متعارف."""
+def cli_candidates(exe: str | None = None) -> list[Path]:
+    """همهٔ جاهایی که atlas-cli ممکن است باشد — روی ویندوز/مک/لینوکس.
+
+    روی ویندوز نام فایل `.exe` است و با ژنراتور Visual Studio خروجی داخل
+    پوشهٔ `Release/` می‌رود؛ هر دو حالت پوشش داده می‌شود تا کاربر ویندوزی
+    مجبور نباشد چیزی را دستی جابه‌جا کند.
+    """
+    if exe is None:
+        exe = ".exe" if os.name == "nt" else ""
+    out: list[Path] = []
     env = os.environ.get("ATLAS_CLI")
-    candidates = [Path(env)] if env else []
-    candidates += [
-        REPO / "build" / "atlas-cli",
-        REPO / "build-ncnn" / "atlas-cli",
-        REPO / "build-nowebp" / "atlas-cli",
-    ]
-    for c in candidates:
-        if c.is_file() and os.access(c, os.X_OK):
-            return c
+    if env:
+        out.append(Path(env))
+    for root in ("build", "build-ncnn", "build-nowebp", "build-release"):
+        for sub in ("", "Release", "Debug"):
+            out.append(REPO / root / sub / f"atlas-cli{exe}")
+    found = shutil.which("atlas-cli")
+    if found:
+        out.append(Path(found))
+    return out
+
+
+def find_cli() -> Path | None:
+    """مسیر atlas-cli؛ اول متغیر محیطی، بعد buildهای متعارف، آخر PATH."""
+    for candidate in cli_candidates():
+        if candidate.is_file() and (os.name == "nt" or os.access(candidate, os.X_OK)):
+            return candidate
     return None
 
 
@@ -61,12 +76,17 @@ LOCK = threading.Lock()  # atlas-cli هم‌زمان روی یک فایل خرو
 
 def run_cli(args: list[str], timeout: int = CLI_TIMEOUT) -> subprocess.CompletedProcess:
     if CLI is None:
-        raise RuntimeError("atlas-cli پیدا نشد؛ اول `cmake --build build` را اجرا کنید.")
+        raise RuntimeError(
+            "atlas-cli پیدا نشد؛ اول پروژه را بسازید "
+            "(ویندوز: tools\\windows\\build.bat — لینوکس/مک: cmake --build build)."
+        )
     with LOCK:
         return subprocess.run(
             [str(CLI), *args],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",  # کنسول ویندوز ممکن است cp1256 باشد
             timeout=timeout,
             check=False,
         )

@@ -91,6 +91,9 @@ cd desktop && npm install && npm run test:dom   # ۱۸ بررسی DOM (اختی�
 
 ## ۵) محدودیت‌های صادقانه
 
+0. **مسیر ویندوز:** `tools/windows/build.bat` و `tools/windows/run-desktop.bat` اضافه شدند؛
+   سرور هم `build\Release\atlas-cli.exe` و `build\atlas-cli.exe` را می‌شناسد. راهنمای
+   کامل: `tools/windows/README.md`.
 1. **این Tauri/نیتیو نیست.** یک وب‌اپ محلی است که در مرورگر باز می‌شود. بستهٔ
    `.exe`/`.dmg`/`.apk` هنوز ساخته نشده و در این محیط (بدون Rust/WebKit) هم
    ساخته نمی‌شود. مسیر مهاجرت در `desktop/README.md` آمده است.

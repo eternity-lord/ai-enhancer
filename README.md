@@ -90,24 +90,41 @@
 
 ---
 
-## ۵) اجرا (P0 — اسکلت قابل اجرا)
+## ۵) اجرا
+
+### ویندوز (سریع‌ترین راه)
+
+```bat
+:: فقط اگر «'cmake' is not recognized» گرفتید — یک‌بار:
+winget install --id Kitware.CMake -e
+winget install Microsoft.VisualStudio.2022.BuildTools --override "--quiet --wait --add Microsoft.VisualStudio.Workload.VCTools"
+
+:: بعد در یک پنجرهٔ تازه (CMD یا PowerShell):
+tools\windows\build.bat        :: پیکربندی + ساخت + اجرای ۷۱ تست هسته
+tools\windows\run-desktop.bat  :: باز کردن پوستهٔ دسکتاپ روی http://localhost:8000
+```
+
+خروجی موفق: `done. atlas-cli = build\Release\atlas-cli.exe`.
+راهنمای گام‌به‌گام و رفع خطاها (کامپایلر پیدا نشد، MSVC قدیمی، …):
+[tools/windows/README.md](tools/windows/README.md).
+
+### لینوکس / مک
 
 ```bash
-# ۱) مسیر کلاسیک (بدون هیچ وابستگی خارجی، همه‌جا کار می‌کند)
+# ۱) مسیر کلاسیک (بدون هیچ وابستگی خارجی)
 cmake -S core -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j
-./build/atlas-cli enhance photo.jpg out.png --scale 2 --sharpen 20
+./build/atlas-tests                                 # ۷۱ تست
+./build/atlas-cli enhance photo.jpg out2x.png --scale 2   # پاک‌سازی خودکار + بزرگ‌نمایی
+./build/atlas-cli restore photo.jpg clean.png             # فقط حذف نویز/JPEG
 ./build/atlas-cli eval original.png out.png --min-psnr 32 --min-ssim 0.90
-./build/atlas-tests        # ۷۱ تست
 ./build/atlas-cli gate original.png restored.png --face 120,90,256,256
 ./build/atlas-cli eval-set eval/golden/manifest.tsv
-./build/atlas-cli restore photo.jpg clean.png      # حذف نویز/JPEG بدون تغییر ابعاد
 
-# ۳) پوستهٔ گرافیکی (محلی، آفلاین)
-python3 desktop/server.py --port 8000            # → http://localhost:8000
-python3 desktop/test_server.py                   # ۷ تست سرور
-./build/atlas-cli enhance photo.jpg out2x.png --scale 2   # پاک‌سازی خودکار قبل از SR
+# ۲) پوستهٔ گرافیکی (محلی، آفلاین)
+python3 desktop/server.py --port 8000             # → http://localhost:8000
+python3 desktop/test_server.py                    # ۹ تست سرور
 
-# ۲) مسیر مدل واقعی (ncnn؛ روی CPU هم اجرا می‌شود، با GPU چند برابر سریع‌تر)
+# ۳) مسیر مدل واقعی (ncnn؛ روی CPU هم اجرا می‌شود، با GPU چند برابر سریع‌تر)
 python3 tools/fetch_models.py --from-wheel        # وزن‌ها هرگز در گیت نیستند
 cmake -S core -B build-ncnn -DCMAKE_BUILD_TYPE=Release \
       -DATLAS_WITH_NCNN=ON -DCMAKE_PREFIX_PATH=/path/to/ncnn-install

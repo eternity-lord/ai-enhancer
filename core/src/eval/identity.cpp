@@ -19,6 +19,7 @@ namespace {
 
 constexpr int kCells = 4;
 constexpr int kBins = 8;
+constexpr double kPi = 3.14159265358979323846;
 
 ImageF32 crop_normalized(const ImageF32& img, const NormBox& box) {
   if (img.empty()) return ImageF32();
@@ -143,8 +144,9 @@ std::array<double, 128> shape_signature(const ImageF32& image) {
       const double mag = std::sqrt(gx * gx + gy * gy);
       if (mag < 1e-5) continue;
       double angle = std::atan2(gy, gx);  // [-π, π]
-      if (angle < 0) angle += M_PI;
-      const int bin = std::min(kBins - 1, static_cast<int>(angle / M_PI * kBins));
+      // kPi محلی است، نه M_PI: در MSVC این ماکرو بدون _USE_MATH_DEFINES وجود ندارد.
+      if (angle < 0) angle += kPi;
+      const int bin = std::min(kBins - 1, static_cast<int>(angle / kPi * kBins));
       const int cx = std::min(kCells - 1, x / cell_w);
       const int cy = std::min(kCells - 1, y / cell_h);
       sig[static_cast<size_t>((cy * kCells + cx) * kBins + bin)] += mag;

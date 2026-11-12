@@ -45,10 +45,15 @@ cmake -S core -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
   -DATLAS_BACKEND_VULKAN=ON -DATLAS_BACKEND_ORT=ON -DATLAS_TESTS=ON
 cmake --build build -j
 
-# ویندوز
-cmake -S core -B build -G "Visual Studio 17 2022" -A x64 ^
-  -DATLAS_BACKEND_VULKAN=ON -DATLAS_BACKEND_DML=ON
-cmake --build build --config Release
+# ویندوز — راه ساده: اسکریپت آماده (CMake و کامپایلر را خودش پیدا می‌کند)
+tools\windows\build.bat
+tools\windows\run-desktop.bat
+
+# ویندوز — دستی
+cmake -S core -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Release -j
+.\build\Release\atlas-tests.exe
+# خروجی ژنراتور VS داخل build\Release\ می‌افتد؛ سرور دسکتاپ هر دو مسیر را می‌شناسد.
 
 # اندروید (arm64)
 cmake -S core -B build-android -G Ninja ^

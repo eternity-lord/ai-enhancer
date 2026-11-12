@@ -128,6 +128,30 @@ class ServerTest(unittest.TestCase):
             self.post("/api/upload?name=notes.txt", b"hello", "application/octet-stream")
         self.assertEqual(ctx.exception.code, 400)
 
+    def test_cli_candidates_cover_windows_layout(self) -> None:
+        # روی ویندوز فایل `.exe` است و با ژنراتور Visual Studio داخل Release/ می‌رود.
+        candidates = [str(p) for p in server.cli_candidates(exe=".exe")]
+        self.assertTrue(any(p.endswith("build\\Release\\atlas-cli.exe") or
+                            p.endswith("build/Release/atlas-cli.exe") for p in candidates),
+                        candidates)
+        self.assertTrue(any(p.endswith("atlas-cli.exe") for p in candidates))
+        unix = [str(p) for p in server.cli_candidates(exe="")]
+        self.assertTrue(any(p.endswith("build/atlas-cli") for p in unix))
+
+    def test_env_override_wins(self) -> None:
+        old = os.environ.get("ATLAS_CLI")
+        try:
+            fake = Path(tempfile.mkdtemp()) / "atlas-cli"
+            fake.write_text("#!/bin/sh\n", encoding="utf-8")
+            fake.chmod(0o755)
+            os.environ["ATLAS_CLI"] = str(fake)
+            self.assertEqual(server.cli_candidates()[0], fake)
+        finally:
+            if old is None:
+                os.environ.pop("ATLAS_CLI", None)
+            else:
+                os.environ["ATLAS_CLI"] = old
+
     def test_unknown_item_is_404(self) -> None:
         with self.assertRaises(urllib.error.HTTPError) as ctx:
             self.get_json("/api/item/doesnotexist")

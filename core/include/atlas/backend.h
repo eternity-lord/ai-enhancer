@@ -23,9 +23,14 @@ class IBackend {
 std::unique_ptr<IBackend> make_classical_backend(int scale, float sharpen = 0.2f);
 
 // مسیر مدل: اگر Atlas با ncnn ساخته نشده باشد، nullptr برمی‌گردد.
+// use_gpu فقط وقتی اثر دارد که ncnn با Vulkan ساخته شده و دستگاه Vulkan موجود
+// باشد؛ وگرنه بی‌صدا به CPU برمی‌گردد (name() می‌گوید کدام مسیر انتخاب شد).
 std::unique_ptr<IBackend> make_ncnn_backend(const std::string& param_path,
                                             const std::string& bin_path, int scale,
-                                            int threads, bool fp16);
+                                            int threads, bool fp16, bool use_gpu = false);
 bool ncnn_compiled();
+
+// تعداد دستگاه‌های Vulkan قابل استفاده (۰ اگر Vulkan کامپایل نشده باشد).
+int vulkan_device_count();
 
 }  // namespace atlas

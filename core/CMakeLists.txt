@@ -15,6 +15,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(ATLAS_BUILD_CLI "Build atlas-cli" ON)
 option(ATLAS_BUILD_TESTS "Build unit tests" ON)
 option(ATLAS_WITH_NCNN "Build the ncnn inference backend" OFF)
+option(ATLAS_WITH_WEBP "Enable the WebP codec when libwebp is available" ON)
 
 add_library(atlas-core STATIC
   src/util/log.cpp
@@ -28,6 +29,7 @@ add_library(atlas-core STATIC
   src/io/image_io.cpp
   src/io/exif.cpp
   src/io/icc.cpp
+  src/io/metadata.cpp
   src/backend/classical_backend.cpp
   src/backend/ncnn_backend.cpp
   src/stages/sr.cpp
@@ -45,6 +47,22 @@ target_compile_options(atlas-core PRIVATE
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   # هدرهای stb هشدارهای زیادی می‌دهند؛ فقط برای همان TU خاموش می‌کنیم.
   set_source_files_properties(src/io/stb_impl.cpp PROPERTIES COMPILE_OPTIONS "-w")
+endif()
+
+if (ATLAS_WITH_WEBP)
+  find_package(WebP QUIET)
+  if (WebP_FOUND)
+    target_sources(atlas-core PRIVATE src/io/webp.cpp)
+    target_link_libraries(atlas-core PUBLIC WebP::webp)
+    target_compile_definitions(atlas-core PRIVATE ATLAS_WITH_WEBP=1)
+    message(STATUS "Atlas: WebP codec enabled (${WebP_VERSION})")
+  else()
+    target_sources(atlas-core PRIVATE src/io/webp.cpp)
+    message(STATUS "Atlas: WebP codec disabled (libwebp not found; build still works)")
+  endif()
+else()
+  target_sources(atlas-core PRIVATE src/io/webp.cpp)
+  message(STATUS "Atlas: WebP codec disabled by option")
 endif()
 
 if (ATLAS_WITH_NCNN)
@@ -74,6 +92,7 @@ if (ATLAS_BUILD_TESTS)
     tests/test_color.cpp
     tests/test_exif.cpp
     tests/test_icc.cpp
+    tests/test_metadata.cpp
   )
   target_link_libraries(atlas-tests PRIVATE atlas-core)
   add_test(NAME atlas-unit COMMAND atlas-tests)

@@ -31,4 +31,11 @@ bool load_image_ex(const std::string& path, ImageF32* out, ImageMeta* meta, std:
 bool save_image(const std::string& path, const ImageF32& img, int jpeg_quality,
                 std::string* error);
 
+// --- WebP (وابستگی اختیاری) ---
+// اگر build با libwebp ساخته نشده باشد، این توابع false و پیام روشن برمی‌گردانند
+// (به‌جای crash یا خروجی خالی).
+bool webp_compiled();
+bool load_webp(const std::string& path, ImageF32* out, std::string* error);
+bool save_webp(const std::string& path, const ImageF32& img, int quality, std::string* error);
+
 }  // namespace atlas

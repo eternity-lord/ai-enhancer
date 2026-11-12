@@ -19,7 +19,7 @@
 | RAW (CR2/NEF/ARW…) | P3 | — | ۱۲/۱۴ | — | ✅ | LibRaw |
 | HEIC | P2 | P2 | ۱۰ | ✅ | ✅ | libheif |
 
-**وضعیت پیاده‌سازی (P1.6، ۲۰۲۶-۱۱-۱۱):**
+**وضعیت پیاده‌سازی (P1.7، ۲۰۲۶-۱۱-۱۱):**
 
 | قابلیت | الان | بعداً |
 |---|---|---|
@@ -27,9 +27,11 @@
 | جهت عکس (EXIF `0x0112`) | ✅ هر ۸ حالت، پیش‌فرض روشن | — |
 | آلفا (PNG/TGA) | ✅ حفظ می‌شود؛ در SR هم می‌ماند (ncnn: آلفا با Lanczos جدا بزرگ می‌شود) | WebP/AVIF آلفا بعد از P1-08 |
 | ICC ماتریسی/TRC (iCCP، APP2) | ✅ تبدیل به sRGB؛ LUT-based رد می‌شود و گزارش می‌دهد | A2B0/LUT با LittleCMS |
-| WebP / TIFF / AVIF / HEIC | ❌ | P1-06 / P2 |
+| WebP | ✅ وقتی libwebp موجود باشد (build بدون آن هم سالم است) | lossless flag در P2 |
+| TIFF / AVIF / HEIC | ❌ | P2 (libtiff/libavif/libheif) |
 | ICC (iCCP/APP2) | ✅ ماتریسی+TRC → sRGB (بدون LittleCMS) | پروفایل‌های LUT با LittleCMS |
-| متادیتای خروجی (EXIF دوربین) | ❌ فعلاً حذف می‌شود | P1-09 «وفاداری فایل» |
+| متادیتای خروجی (EXIF دوربین) | ✅ با `--keep-metadata` (پیش‌فرض خاموش) | حفظ IPTC/XMP در P2 |
+| برچسب sRGB در خروجی | ✅ `iCCP` در PNG و `APP2` در JPEG | — |
 | sRGB ↔ خطی | ✅ `to_linear`/`to_srgb` دقیق | اتصال به مراحل نویز/شارپ |
 
 > نکتهٔ عملی: عکس Display P3 آیفون حالا به sRGB تبدیل می‌شود، پس دیگر «کم‌رنگ»

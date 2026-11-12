@@ -166,9 +166,16 @@ ImageF32 adjust_light(const ImageF32& src, const LightOptions& options, LightRep
     if (counted > 0 && sr > 1e-6 && sg > 1e-6 && sb > 1e-6) {
       const double mean =
           (sr + sg + sb) / (3.0 * static_cast<double>(counted));  // میانگین هر کانال
-      const double cr = std::clamp(mean / (sr / static_cast<double>(counted)), 0.75, 1.35);
-      const double cg = std::clamp(mean / (sg / static_cast<double>(counted)), 0.75, 1.35);
-      const double cb = std::clamp(mean / (sb / static_cast<double>(counted)), 0.75, 1.35);
+      // فرض «جهان خاکستری» روی صحنه‌های واقعاً رنگی (غروب نارنجی، آسمان آبی)
+      // اشتباه است. پس گین‌ها فقط یک «تلنگر ملایم» هستند: نصف مسیر تا تصحیح
+      // کامل، و سقف ±۲۰٪. اگر صحنه سالم باشد، تقریباً کاری نمی‌کنند.
+      auto gentle = [](double gain) {
+        const double half = 1.0 + 0.5 * (std::clamp(gain, 0.6, 1.7) - 1.0);
+        return std::clamp(half, 0.85, 1.2);
+      };
+      const double cr = gentle(mean / (sr / static_cast<double>(counted)));
+      const double cg = gentle(mean / (sg / static_cast<double>(counted)));
+      const double cb = gentle(mean / (sb / static_cast<double>(counted)));
       // نرمال‌سازی روشنایی: گین‌ها روشنایی کلی تصویر را جابه‌جا نکنند.
       const double lum = kLumaR * cr + kLumaG * cg + kLumaB * cb;
       if (lum > 1e-6) {

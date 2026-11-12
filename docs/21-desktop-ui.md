@@ -6,6 +6,10 @@
 **تاریخ:** ۲۰۲۶-۱۱-۱۱ · **کد:** `desktop/` (`server.py`، `web/index.html`، `web/styles.css`،
 `web/app.js`) · **تست:** `desktop/test_server.py` — ۷ تست دودی، همه سبز
 
+> **به‌روزرسانی (M1-lite.3):** این فایل نسخهٔ اولیهٔ پوسته را توصیف می‌کند. قابلیت‌های
+> تازه (Light AI، پریست، صف دسته‌ای، ذخیرهٔ خروجی، ۲۳ تست سرور و ۴۶ بررسی DOM) در
+> [docs/23](23-app-features.md) آمده‌اند.
+
 ---
 
 ## ۱) زبان بصری: از مرجع تا پیاده‌سازی
@@ -72,10 +76,10 @@
 ## ۴) تست
 
 ```bash
-python3 desktop/test_server.py        # ۷ تست سرور (فقط stdlib)
+python3 desktop/test_server.py        # ۲۳ تست سرور (فقط stdlib)
 # Ran 7 tests … OK
 
-cd desktop && npm install && npm run test:dom   # ۱۸ بررسی DOM (اختیاری، jsdom)
+cd desktop && npm install && npm run test:dom   # ۴۶ بررسی DOM (اختیاری، jsdom)
 # همهٔ بررسی‌های DOM سبز است.
 ```
 
@@ -88,7 +92,7 @@ cd desktop && npm install && npm run test:dom   # ۱۸ بررسی DOM (اختی�
 شدن دانلود، رفتار «مقایسه» بدون نتیجه، ارسال درست بدنهٔ `/api/process`، و
 حالت‌های خودکار/دستی/خاموش در کنترل‌های پاک‌سازی.
 
-این تست‌ها در کنار ۷۱ تست هسته اجرا می‌شوند. هیچ‌کدام — به‌جز تست DOM — به
+این تست‌ها در کنار ۸۵ تست هسته اجرا می‌شوند. جزئیات نسخهٔ کامل: [docs/23](23-app-features.md). هیچ‌کدام — به‌جز تست DOM — به
 مرورگر یا npm نیاز ندارند؛ ساخت خود پروژه هنوز صفر-وابستگی است.
 
 ---

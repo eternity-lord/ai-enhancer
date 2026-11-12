@@ -39,7 +39,7 @@ winget install Microsoft.VisualStudio.2022.BuildTools --override "--quiet --wait
 ## ۲) ساخت
 
 ```bat
-tools\windows\build.bat            :: پیکربندی + ساخت + ۷۱ تست هسته
+tools\windows\build.bat            :: پیکربندی + ساخت + ۸۵ تست هسته
 tools\windows\build.bat --doctor   :: فقط بگو CMake و کدام کامپایلر را می‌بیند
 tools\windows\build.bat --clean    :: پاک‌کردن build\ (بعد از خطای generator)
 tools\windows\build.bat --install  :: نصب CMake + Build Tools با winget، بعد ساخت
@@ -161,8 +161,11 @@ done.  atlas-cli = build\Release\atlas-cli.exe
 tools\windows\run-desktop.bat
 ```
 
-یک پنجرهٔ «Atlas server» باز می‌شود و مرورگر روی `http://localhost:8000` بالا
-می‌آید. برای خاموش‌کردن، همان پنجره را ببندید.
+پنجرهٔ نیتیو Atlas باز می‌شود (pywebview + WebView2؛ اگر نصب نباشد همان‌جا
+`pip install pywebview` می‌کند). اگر پنجرهٔ بومی باز نشد، اسکریپت به‌صورت خودکار
+سرور را بالا می‌آورد و مرورگر را روی `http://localhost:8000` باز می‌کند.
+برای خاموش‌کردن، پنجرهٔ برنامه (یا پنجرهٔ «Atlas server») را ببندید. پس از
+به‌روزرسانی، `atlas-cli.exe` تازه باید از `tools\windows\build.bat` بیاید.
 
 خط فرمان هم کار می‌کند:
 

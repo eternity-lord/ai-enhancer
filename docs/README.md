@@ -34,6 +34,7 @@
 | **20** | [degrade-restore](20-degrade-restore.md) | **حذف نویز و آرتیفکت JPEG: الگوریتم، اعداد، محدودیت‌ها (P2)** |
 | **21** | [desktop-ui](21-desktop-ui.md) | **پوستهٔ دسکتاپ: متریال Liquid Glass، معماری وب+CLI، محدودیت‌ها** |
 | **22** | [native-app](22-native-app.md) | **برنامهٔ واقعی ویندوز (Atlas.exe): پنجرهٔ نیتیو، بسته‌بندی، محدودیت‌ها** |
+| **23** | [app-features](23-app-features.md) | **برنامهٔ کامل: Light AI، پریست، صف دسته‌ای، خروجی/API، اعداد و محدودیت‌ها** |
 | — | [notes/JOURNAL](notes/JOURNAL.md) | دفتر یادداشت‌ها (تصمیم‌ها، فرض‌ها، سؤال‌ها) |
 | — | [research/sources](research/sources.md) | منابع، تاریخ دسترسی، میزان اطمینان |
 

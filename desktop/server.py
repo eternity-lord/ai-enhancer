@@ -27,6 +27,7 @@ import subprocess
 import sys
 import threading
 import time
+import webbrowser
 import uuid
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -458,6 +459,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Atlas desktop shell (local, offline)")
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--host", default="0.0.0.0")
+    ap.add_argument("--open", action="store_true", help="باز کردن مرورگر پیش‌فرض")
     args = ap.parse_args(argv)
 
     DATA.mkdir(parents=True, exist_ok=True)
@@ -468,7 +470,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"atlas-cli: {CLI}")
 
     httpd = Server((args.host, args.port), Handler)
-    print(f"Atlas desktop shell → http://{args.host}:{args.port}", flush=True)
+    url = f"http://localhost:{args.port}"
+    print(f"Atlas desktop shell is running → {url}", flush=True)
+    print("این پنجره را نبندید؛ برای توقف Ctrl+C.", flush=True)
+    if args.open:
+        threading.Timer(0.8, lambda: webbrowser.open(url)).start()
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

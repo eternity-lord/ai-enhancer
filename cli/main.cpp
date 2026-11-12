@@ -18,6 +18,7 @@
 #include "atlas/image_io.h"
 #include "atlas/golden.h"
 #include "atlas/identity.h"
+#include "atlas/light.h"
 #include "atlas/metadata.h"
 #include "atlas/metrics.h"
 #include "atlas/restore.h"
@@ -53,7 +54,26 @@ struct Options {
   bool json = false;
   double min_psnr = -1.0;
   double min_ssim = -1.0;
+  // Light AI (نور/رنگ): همه −۱..+۱ به‌جز نوردهی که EV است.
+  float exposure = 0.0f;
+  float contrast = 0.0f;
+  float saturation = 0.0f;
+  float shadows = 0.0f;
+  float highlights = 0.0f;
+  float warmth = 0.0f;
+  bool auto_light = false;
+  bool auto_wb = false;
 };
+
+std::string json_escape(const std::string& value) {
+  std::string out;
+  out.reserve(value.size() + 8);
+  for (const char c : value) {
+    if (c == '\\' || c == '"') out.push_back('\\');
+    out.push_back(c);
+  }
+  return out;
+}
 
 void print_usage() {
   std::printf(
@@ -65,6 +85,7 @@ void print_usage() {
       "  atlas-cli gate <original> <restored> [--face x,y,w,h] [--ref] [--json]\n"
       "  atlas-cli eval-set <manifest.tsv> [--json] [--allow-missing]\n"
       "  atlas-cli restore <in> <out> [--denoise auto|off|N] [--deblock auto|off|N] [--json]\n"
+      "  atlas-cli adjust <in> <out> [light options] [--json]\n"
       "  atlas-cli enhance <in.(jpg|png|bmp|tga|ppm)> <out> [options]\n"
       "Options:\n"
       "  --scale N        upscale factor (default: model scale, else 2)\n"
@@ -82,12 +103,31 @@ void print_usage() {
       "  --no-auto-orient ignore EXIF orientation (default: apply it)\n"
       "  --no-color-manage ignore the ICC profile (default: convert to sRGB)\n"
       "  --keep-metadata  copy source EXIF into the output (off: GPS/privacy)\n"
+      "Light options (adjust, or before upscaling in enhance):\n"
+      "  --exposure EV    exposure in stops, -2..+2 (default: 0)\n"
+      "  --contrast X     -1..+1 (default: 0)\n"
+      "  --saturation X   -1..+1 (default: 0)\n"
+      "  --shadows X      -1..+1, lifts dark areas (default: 0)\n"
+      "  --highlights X   -1..+1, negative recovers bright areas (default: 0)\n"
+      "  --warmth X       -1..+1, + warmer / - cooler (default: 0)\n"
+      "  --auto-light     auto exposure + contrast from the image histogram\n"
+      "  --auto-wb        auto white balance (grey-world, gain-capped)\n"
+      "Restore options:\n"
       "  --denoise MODE   noise reduction before SR: auto | off | 0..100 (default: auto)\n"
       "  --deblock MODE   JPEG 8x8 deblocking: auto | off | 0..100 (default: auto)\n"
       "  --json           (eval/restore) machine-readable JSON output\n"
       "  --min-psnr X     (eval) fail if PSNR < X dB\n"
       "  --min-ssim Y     (eval) fail if SSIM < Y\n",
       ATLAS_VERSION_STRING);
+}
+
+bool parse_float(const char* s, float* out) {
+  if (!s || !*s) return false;
+  char* end = nullptr;
+  const double v = std::strtod(s, &end);
+  if (end == s || *end != '\0') return false;
+  *out = static_cast<float>(v);
+  return true;
 }
 
 bool parse_int(const char* s, int* out) {
@@ -183,6 +223,23 @@ bool parse_args(int argc, char** argv, Options* opt, int first = 4) {
       opt->bin_path = argv[++i];
     } else if (arg == "--backend" && has_next) {
       opt->backend = argv[++i];
+    } else if (arg == "--exposure" && has_next && parse_float(argv[++i], &opt->exposure) &&
+               opt->exposure >= -2.0f && opt->exposure <= 2.0f) {
+      // مقدار پذیرفته شد
+    } else if (arg == "--contrast" && has_next && parse_float(argv[++i], &opt->contrast)) {
+      opt->contrast = std::clamp(opt->contrast, -1.0f, 1.0f);
+    } else if (arg == "--saturation" && has_next && parse_float(argv[++i], &opt->saturation)) {
+      opt->saturation = std::clamp(opt->saturation, -1.0f, 1.0f);
+    } else if (arg == "--shadows" && has_next && parse_float(argv[++i], &opt->shadows)) {
+      opt->shadows = std::clamp(opt->shadows, -1.0f, 1.0f);
+    } else if (arg == "--highlights" && has_next && parse_float(argv[++i], &opt->highlights)) {
+      opt->highlights = std::clamp(opt->highlights, -1.0f, 1.0f);
+    } else if (arg == "--warmth" && has_next && parse_float(argv[++i], &opt->warmth)) {
+      opt->warmth = std::clamp(opt->warmth, -1.0f, 1.0f);
+    } else if (arg == "--auto-light") {
+      opt->auto_light = true;
+    } else if (arg == "--auto-wb") {
+      opt->auto_wb = true;
     } else {
       std::fprintf(stderr, "unknown or incomplete option: %s\n", arg.c_str());
       return false;
@@ -237,6 +294,52 @@ bool apply_restore(const atlas::ImageF32& src, const std::string& denoise,
                 report->seconds * 1000.0);
   }
   return true;
+}
+
+
+// ---------- Light AI (نور/رنگ) ----------
+
+bool light_requested(const Options& o) {
+  return o.auto_light || o.auto_wb || o.exposure != 0.0f || o.contrast != 0.0f ||
+         o.saturation != 0.0f || o.shadows != 0.0f || o.highlights != 0.0f || o.warmth != 0.0f;
+}
+
+atlas::LightOptions light_options_from(const Options& o) {
+  atlas::LightOptions lo;
+  lo.exposure = o.exposure;
+  lo.contrast = o.contrast;
+  lo.saturation = o.saturation;
+  lo.shadows = o.shadows;
+  lo.highlights = o.highlights;
+  lo.warmth = o.warmth;
+  lo.auto_tone = o.auto_light;
+  lo.auto_white_balance = o.auto_wb;
+  return lo;
+}
+
+void print_light_report(const atlas::LightReport& r) {
+  std::printf("light : mean %.3f -> %.3f | contrast %.3f -> %.3f | saturation %.3f -> %.3f\n",
+              r.before.mean, r.after.mean, r.before.contrast, r.after.contrast,
+              r.before.saturation, r.after.saturation);
+  std::printf("        clip low/high %.2f%%/%.2f%% -> %.2f%%/%.2f%% | gains R%.3f G%.3f B%.3f%s\n",
+              r.before.clip_low, r.before.clip_high, r.after.clip_low, r.after.clip_high,
+              r.wb_red_gain, r.wb_green_gain, r.wb_blue_gain,
+              r.auto_exposure_ev != 0.0 ? " (auto exposure)" : "");
+  if (r.auto_contrast != 0.0) std::printf("        auto contrast +%.2f\n", r.auto_contrast);
+}
+
+void print_light_json(const atlas::LightReport& r) {
+  std::printf(
+      "{\"mean_before\":%.4f,\"mean_after\":%.4f,\"contrast_before\":%.4f,"
+      "\"contrast_after\":%.4f,\"saturation_before\":%.4f,\"saturation_after\":%.4f,"
+      "\"clip_low_before\":%.3f,\"clip_low_after\":%.3f,\"clip_high_before\":%.3f,"
+      "\"clip_high_after\":%.3f,\"p50_before\":%.4f,\"p50_after\":%.4f,"
+      "\"wb_red\":%.4f,\"wb_green\":%.4f,\"wb_blue\":%.4f,\"auto_ev\":%.3f,"
+      "\"auto_contrast\":%.3f,\"ms\":%.1f}\n",
+      r.before.mean, r.after.mean, r.before.contrast, r.after.contrast, r.before.saturation,
+      r.after.saturation, r.before.clip_low, r.after.clip_low, r.before.clip_high,
+      r.after.clip_high, r.before.p50, r.after.p50, r.wb_red_gain, r.wb_green_gain,
+      r.wb_blue_gain, r.auto_exposure_ev, r.auto_contrast, r.seconds * 1000.0);
 }
 
 bool load_ready(const std::string& path, bool auto_orient, bool color_manage,
@@ -299,6 +402,13 @@ int main(int argc, char** argv) {
 
   const std::string cmd = argv[1];
   if (cmd == "version" || cmd == "--version" || cmd == "-v") {
+    if (argc >= 3 && std::string(argv[2]) == "--json") {
+      std::printf(
+          "{\"version\":\"%s\",\"ncnn\":%s,\"webp\":%s,\"threads\":%u}\n", atlas_version(),
+          atlas::ncnn_compiled() ? "true" : "false", atlas::webp_compiled() ? "true" : "false",
+          std::thread::hardware_concurrency());
+      return 0;
+    }
     std::printf("atlas-cli %s (ncnn=%s)\n", atlas_version(),
                 atlas::ncnn_compiled() ? "on" : "off");
     return 0;
@@ -579,6 +689,52 @@ int main(int argc, char** argv) {
     return 0;
   }
 
+  // adjust: فقط نور و رنگ (Light AI). ابعاد و آلفا دست نمی‌خورند؛ همین مرحله
+  // در enhance هم *قبل* از بزرگ‌نمایی اجرا می‌شود تا نویز/رنگ چهار برابر نشود.
+  if (cmd == "adjust" && argc >= 4) {
+    Options lopt;
+    lopt.in_path = argv[2];
+    lopt.out_path = argv[3];
+    if (!parse_args(argc, argv, &lopt)) {
+      atlas_destroy(ctx);
+      return 2;
+    }
+    if (!light_requested(lopt)) {
+      std::fprintf(stderr,
+                   "adjust needs at least one light option "
+                   "(--exposure/--contrast/--saturation/--shadows/--highlights/--warmth/"
+                   "--auto-light/--auto-wb)\n");
+      atlas_destroy(ctx);
+      return 2;
+    }
+    atlas::ImageF32 img;
+    atlas::ImageMeta meta;
+    std::string error;
+    if (!load_ready(lopt.in_path, lopt.auto_orient, lopt.color_manage, &img, &meta, &error)) {
+      std::fprintf(stderr, "cannot load %s: %s\n", lopt.in_path.c_str(), error.c_str());
+      atlas_destroy(ctx);
+      return 1;
+    }
+    atlas::LightReport rep;
+    const atlas::ImageF32 out = atlas::adjust_light(img, light_options_from(lopt), &rep);
+    if (!atlas::save_image(lopt.out_path, out, lopt.quality, &error)) {
+      std::fprintf(stderr, "cannot save %s: %s\n", lopt.out_path.c_str(), error.c_str());
+      atlas_destroy(ctx);
+      return 1;
+    }
+    finalize_output(lopt.in_path, lopt.out_path, meta, lopt);
+    if (lopt.json) {
+      print_light_json(rep);
+    } else if (!lopt.quiet) {
+      std::printf("%dx%d (%d ch) -> %s\n", out.width(), out.height(), out.channels(),
+                  lopt.out_path.c_str());
+      print_light_report(rep);
+      print_color_line(meta);
+    }
+    atlas_destroy(ctx);
+    return 0;
+  }
+
   if (cmd != "enhance" || argc < 4) {
     print_usage();
     atlas_destroy(ctx);
@@ -592,6 +748,8 @@ int main(int argc, char** argv) {
     atlas_destroy(ctx);
     return 2;
   }
+
+  if (opt.json) opt.quiet = true;  // خروجی ماشین‌خوان نباید با لاگ انسانی قاطی شود
 
   const bool has_model = !opt.param_path.empty() && !opt.bin_path.empty();
   if (!has_model && (!opt.param_path.empty() || !opt.bin_path.empty())) {
@@ -665,6 +823,14 @@ int main(int argc, char** argv) {
     }
   }
 
+  // Light AI پیش از SR: تصویر کوچک است، پس ارزان است و رنگ/نور چهار برابر
+  // بزرگ نمی‌شود. خروجی هم قابل پیش‌بینی می‌ماند (منحنی، نه مدل).
+  if (light_requested(opt)) {
+    atlas::LightReport lrep;
+    src = atlas::adjust_light(src, light_options_from(opt), &lrep);
+    if (!opt.quiet) print_light_report(lrep);
+  }
+
   atlas::SrOptions sr;
   sr.tile = opt.tile;
   sr.overlap = opt.overlap;
@@ -711,6 +877,14 @@ int main(int argc, char** argv) {
   }
   finalize_output(opt.in_path, opt.out_path, meta, opt);
 
+  if (opt.json) {
+    std::printf(
+        "{\"ok\":true,\"width\":%d,\"height\":%d,\"scale\":%d,\"seconds\":%.3f,"
+        "\"mp_per_s\":%.2f,\"backend\":\"%s\",\"path\":\"%s\"}\n",
+        upscaled.width(), upscaled.height(), backend->scale(), seconds,
+        upscaled.pixel_count() / 1e6 / (seconds > 0 ? seconds : 1e-9),
+        json_escape(backend->name()).c_str(), json_escape(opt.out_path).c_str());
+  }
   if (!opt.quiet) {
     std::printf("output: %dx%d (%.2f MP) in %.2fs (%.2f MP/s) -> %s\n", upscaled.width(),
                 upscaled.height(), upscaled.pixel_count() / 1e6, seconds,

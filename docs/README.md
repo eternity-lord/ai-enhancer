@@ -31,6 +31,7 @@
 | **17** | [evaluation-protocol](17-evaluation-protocol.md) | مجموعهٔ طلایی، متریک‌ها، آستانه‌ها، داوری انسانی، انصاف |
 | **18** | [build-plan-wbs](18-build-plan-wbs.md) | **WBS فایل‌به‌فایل با تخمین و ترتیب اجرا** |
 | **19** | [identity-gate](19-identity-gate.md) | **دروازهٔ هویت و مجموعهٔ طلایی: پیاده‌سازی، کالیبراسیون، محدودیت‌ها** |
+| **20** | [degrade-restore](20-degrade-restore.md) | **حذف نویز و آرتیفکت JPEG: الگوریتم، اعداد، محدودیت‌ها (P2)** |
 | — | [notes/JOURNAL](notes/JOURNAL.md) | دفتر یادداشت‌ها (تصمیم‌ها، فرض‌ها، سؤال‌ها) |
 | — | [research/sources](research/sources.md) | منابع، تاریخ دسترسی، میزان اطمینان |
 

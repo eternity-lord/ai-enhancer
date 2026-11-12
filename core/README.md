@@ -4,7 +4,7 @@
 همین حالا build می‌شود، روی هر سه پلتفرم (ویندوز/لینوکس/مک و بعد موبایل) کار
 می‌کند و مسیر «مدل واقعی» را هم دارد، بدون اینکه وزن‌ها وارد گیت شوند.
 
-## وضعیت فعلی (پایان P1 + P3-01)
+## وضعیت فعلی (پایان P1 + P2 + P3-01)
 
 | بخش | وضعیت |
 |---|---|
@@ -27,7 +27,8 @@
 | آمادگی Vulkan (`--gpu`) | ✅ کد؛ عدد GPU در این محیط اندازه‌گیری نشد |
 | دروازهٔ هویت (پروکسی ساختاری، `gate`) | ✅ `src/eval/identity.cpp` |
 | مجموعهٔ طلایی + پذیرش `docs/17` (`eval-set`) | ✅ `src/eval/golden.cpp` |
-| تست واحد | ✅ ۶۱ تست، صفر شکست |
+| حذف نویز NLM + deblock شرطی ۸×۸ (`restore`) | ✅ `src/stages/restore.cpp` |
+| تست واحد | ✅ ۷۱ تست، صفر شکست |
 | TIFF/AVIF/HEIC | ⏳ P2 |
 | LPIPS/DISTS و ArcFace (وزن واقعی) | ⏳ P3-02 |
 
@@ -49,7 +50,8 @@ cmake --build build -j
 ./build/atlas-cli gate original.png restored.png --face 120,90,256,256   # دروازهٔ هویت
 ./build/atlas-cli eval-set eval/golden/manifest.tsv                     # مجموعهٔ طلایی
 python3 tools/make_sample_golden.py --out /tmp/atlas-golden             # نمونهٔ مصنوعی
-./build/atlas-tests                                   # ۶۱ تست
+./build/atlas-cli restore noisy.jpg clean.png                           # نویز/JPEG
+./build/atlas-tests                                   # ۷۱ تست
 ```
 
 ### مسیر مدل واقعی (ncnn)

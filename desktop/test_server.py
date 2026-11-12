@@ -152,6 +152,39 @@ class ServerTest(unittest.TestCase):
             else:
                 os.environ["ATLAS_CLI"] = old
 
+    def test_data_dir_honours_env_override(self) -> None:
+        old = os.environ.get("ATLAS_UI_DATA")
+        try:
+            target = tempfile.mkdtemp(prefix="atlas-data-")
+            os.environ["ATLAS_UI_DATA"] = target
+            self.assertEqual(server.data_dir(), Path(target))
+        finally:
+            if old is None:
+                os.environ.pop("ATLAS_UI_DATA", None)
+            else:
+                os.environ["ATLAS_UI_DATA"] = old
+
+    def test_frozen_app_uses_meipass_and_user_data_dir(self) -> None:
+        from unittest import mock
+
+        old = os.environ.pop("ATLAS_UI_DATA", None)
+        try:
+            with mock.patch.object(server.sys, "frozen", True, create=True), \
+                 mock.patch.object(server.sys, "_MEIPASS", "/tmp/atlas-meipass", create=True):
+                self.assertEqual(server.bundle_root(), Path("/tmp/atlas-meipass"))
+                data = server.data_dir()
+                self.assertEqual((data.name, data.parent.name), ("data", "Atlas"))
+                self.assertIn(Path("/tmp/atlas-meipass") / "atlas-cli",
+                              server.cli_candidates())
+        finally:
+            if old is not None:
+                os.environ["ATLAS_UI_DATA"] = old
+
+    def test_cli_candidates_include_executable_folder(self) -> None:
+        paths = [str(p) for p in server.cli_candidates()]
+        exe_dir = str(Path(server.sys.executable).resolve().parent)
+        self.assertTrue(any(path.startswith(exe_dir) for path in paths), paths[:3])
+
     def test_unknown_item_is_404(self) -> None:
         with self.assertRaises(urllib.error.HTTPError) as ctx:
             self.get_json("/api/item/doesnotexist")

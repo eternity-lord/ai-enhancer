@@ -49,6 +49,7 @@
 | [docs/19-identity-gate.md](docs/19-identity-gate.md) | دروازهٔ هویت + مجموعهٔ طلایی: کد، کالیبراسیون، محدودیت‌ها |
 | [docs/20-degrade-restore.md](docs/20-degrade-restore.md) | حذف نویز و آرتیفکت JPEG پیش از بزرگ‌نمایی: اعداد و محدودیت‌ها |
 | [docs/21-desktop-ui.md](docs/21-desktop-ui.md) | پوستهٔ دسکتاپ با تم Liquid Glass: معماری، کنترل‌ها، محدودیت‌ها |
+| [docs/22-native-app.md](docs/22-native-app.md) | برنامهٔ واقعی ویندوز (Atlas.exe): پنجرهٔ نیتیو، بسته‌بندی، محدودیت‌ها |
 | [docs/notes/JOURNAL.md](docs/notes/JOURNAL.md) | دفتر یادداشت‌های مهندسی (هر فایل یک ورودی) |
 | [docs/research/sources.md](docs/research/sources.md) | منابع و تاریخ دسترسی (شفافیت پژوهشی) |
 | [models/catalog.json](models/catalog.json) | کاتالوگ ماشین‌خوان مدل‌ها (وظیفه، فرمت، لایسنس، تیر) |
@@ -78,7 +79,8 @@
 - [x] **P3-01/P3-04 — دروازهٔ هویت + مجموعهٔ طلایی**: پروکسی ساختاری (چیدمان + HOG + رنگ) با آستانهٔ مستقل از ArcFace، `atlas-cli gate` و `atlas-cli eval-set`، پذیرش خودکار مطابق docs/17؛ **۶۱ تست**. جزئیات و اعداد: [docs/19](docs/19-identity-gate.md).
 - [x] **P2 — عکس خراب**: deblock شرطی ۸×۸ + NLM (patch ۳×۳/search ۵×۵) قبل از SR، با تشخیص خودکار نویز/شبکه؛ **+۴٫۱۷ dB PSNR** روی ورودی خراب و **۶۱ → ۷۱ تست**. جزئیات: [docs/20](docs/20-degrade-restore.md).
 - [x] **M1-lite — پوستهٔ دسکتاپ**: پنجرهٔ شیشه‌ای (Liquid Glass) با کتابخانهٔ تصاویر، مقایسهٔ قبل/پس، پاک‌سازی و بزرگ‌نمایی واقعی روی `atlas-cli`؛ ۷ تست سرور + ۱۸ بررسی DOM. جزئیات: [docs/21](docs/21-desktop-ui.md).
-- [ ] **M1 — MVP ویندوز** (بستهٔ نیتیو Tauri + صف دسته‌ای): Tauri + هستهٔ ncnn-Vulkan + بزرگ‌نمایی ۲x/۴x با tiling + صف دسته‌ای + پریست‌ها.
+- [x] **M1-lite.2 — برنامهٔ واقعی**: `Atlas.exe` تک‌فایل با پنجرهٔ نیتیو (WebView2 + pywebview) و تم شیشه‌ای؛ ساخت با `desktop\build-exe.bat`. جزئیات و محدودیت‌ها: [docs/22](docs/22-native-app.md).
+- [ ] **M1 — MVP ویندوز** (نصب‌کننده، آیکن، صف دسته‌ای): Tauri + هستهٔ ncnn-Vulkan + بزرگ‌نمایی ۲x/۴x با tiling + صف دسته‌ای + پریست‌ها.
 
 > **محدودیت صادقانه:** دروازهٔ فعلی پروکسی ساختاری است، نه ArcFace؛ برای گرفتن رگرسیون در CI ساخته شده و «همان شخص» را بیومتریک ثابت نمی‌کند. ArcFace در P3-02 وصل می‌شود.
 

@@ -70,3 +70,6 @@ Thumbs.db
 
 # Desktop shell local state
 desktop/.data/
+
+# PyInstaller
+*.spec

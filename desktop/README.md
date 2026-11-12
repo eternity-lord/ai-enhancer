@@ -39,6 +39,26 @@ python3 desktop/test_server.py     # ۷ تست: health، آپلود، پرداز
 cd desktop && npm install && npm run test:dom
 ```
 
+## برنامهٔ واقعی (Atlas.exe) — بدون مرورگر
+
+```bat
+tools\windows\build.bat      :: یک‌بار: ساخت هسته
+desktop\build-exe.bat        :: ساخت برنامهٔ تک‌فایل
+```
+
+خروجی `desktop\dist\Atlas.exe` است: دابل‌کلیک، پنجرهٔ شیشه‌ای باز می‌شود
+(WebView2 روی ویندوز). لاگ خطاها: `%LOCALAPPDATA%\Atlas\data\atlas.log`.
+جزئیات، معماری و محدودیت‌ها: [docs/22](../docs/22-native-app.md).
+
+حالت توسعه بدون ساخت exe:
+
+```bat
+python desktop\app.py             :: پنجرهٔ نیتیو
+python desktop\app.py --frameless :: پنجرهٔ بدون قاب (تم کامل، آزمایشی)
+python desktop\app.py --browser   :: فقط مرورگر
+python desktop\app.py --check     :: سلامت بسته (سرور + مسیر atlas-cli)
+```
+
 ## چطور استفاده کنم؟ (از پنجره تا خروجی)
 
 ۱. در ترمینال:

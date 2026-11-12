@@ -39,23 +39,62 @@ winget install Microsoft.VisualStudio.2022.BuildTools --override "--quiet --wait
 ## ۲) ساخت
 
 ```bat
+tools\windows\build.bat            :: پیکربندی + ساخت + ۷۱ تست هسته
+tools\windows\build.bat --doctor   :: فقط بگو CMake و کدام کامپایلر را می‌بیند
+tools\windows\build.bat --clean    :: پاک‌کردن build\ (بعد از خطای generator)
+tools\windows\build.bat --install  :: نصب CMake + Build Tools با winget، بعد ساخت
+tools\windows\build.bat --run      :: ساخت، بعد باز کردن پوستهٔ دسکتاپ
+```
+
+> **چرا این اسکریپت ژنراتور را خودش انتخاب می‌کند؟** CMake روی ویندوز وقتی
+> Visual Studio پیدا نکند، `NMake Makefiles` را انتخاب می‌کند و `nmake` فقط داخل
+> «Developer Command Prompt» وجود دارد. نتیجه همان خطایی است که می‌بینید:
+>
+> ```
+> -- Building for: NMake Makefiles
+> 'nmake' '-?' failed with: no such file or directory
+> CMake Error: CMAKE_CXX_COMPILER not set
+> ```
+>
+> یعنی **کامپایلر C++ نصب نیست**. اسکریپت حالا با `vswhere` وجود MSVC را
+> می‌فهمد و صریح `-G "Visual Studio 17 2022" -A x64` می‌دهد؛ اگر MSVC نبود و
+> MinGW/LLVM دید، `Ninja` یا `MinGW Makefiles` را انتخاب می‌کند؛ و اگر هیچ‌کدام
+> نبود، با پیام روشن متوقف می‌شود (به‌جای خطای گنگ).
+
+### اگر همان خطای `NMake` را گرفتید
+
+```powershell
+winget install Microsoft.VisualStudio.2022.BuildTools --override "--quiet --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+```
+
+بعد (لازم نیست پنجره را ببندید؛ اسکریپت VS را با `vswhere` پیدا می‌کند، ولی اگر
+نصب تازه تمام شده یک پنجرهٔ تازه مطمئن‌تر است):
+
+```bat
+tools\windows\build.bat --clean
+```
+
+### مسیر پروژه
+
+پوشه‌ای مثل `Downloads\ai-enhancer-main (1)\...` پرانتز و فاصله دارد. CMake با
+آن کنار می‌آید، ولی MinGW/NMake گاهی نه. اگر خطای عجیب دیدید، پروژه را به
+`C:\atlas` منتقل کنید و دوباره `build.bat` بزنید.
+
+## ساخت دستی (بدون اسکریپت)
+
+```bat
 tools\windows\build.bat
 ```
 
 اسکریپت این کارها را می‌کند:
 
 1. CMake را در `PATH` و مسیرهای متعارف پیدا می‌کند (و اگر پیدا نکرد، می‌گوید چه کنید).
-2. `core` را با `Release` پیکربندی و می‌سازد (ژنراتور Visual Studio را خودش انتخاب می‌کند).
-3. `atlas-cli.exe` و `atlas-tests.exe` را پیدا می‌کند — حتی وقتی خروجی داخل
+2. کامپایلر را تشخیص می‌دهد (MSVC با `vswhere`، بعد `cl`، بعد `g++`/`clang++`) و
+   ژنراتور مناسب را صریح انتخاب می‌کند.
+3. اگر `build\` با ژنراتور دیگری پیکربندی شده باشد، خودش پاک می‌کند.
+4. `atlas-cli.exe` و `atlas-tests.exe` را پیدا می‌کند — حتی وقتی خروجی داخل
    `build\Release\` افتاده باشد.
-4. تست‌های هسته را اجرا می‌کند و خلاصه می‌دهد.
-
-گزینه‌ها:
-
-```bat
-tools\windows\build.bat --install     :: نصب CMake با winget، بعد ساخت
-tools\windows\build.bat --run         :: ساخت، بعد باز کردن پوستهٔ دسکتاپ
-```
+5. تست‌های هسته را اجرا می‌کند و خلاصه می‌دهد.
 
 خروجی موفق:
 
@@ -90,7 +129,9 @@ build\Release\atlas-cli.exe enhance photo.jpg out4x.png --scale 4
 | خطا | معنی | کار |
 |---|---|---|
 | `'cmake' is not recognized` | CMake نصب/PATH نیست | بخش ۱-الف، بعد ترمینال تازه |
+| `-- Building for: NMake Makefiles` و بعد `'nmake' ... no such file or directory` | کامپایلر C++ نیست؛ CMake به NMake افتاده | بخش ۱-ب، بعد `build.bat --clean` |
 | `No CMAKE_CXX_COMPILER could be found` | کامپایلر نیست | بخش ۱-ب (Build Tools + workload VCTools) |
+| `generator ... does not match the cache` | `build\` با ژنراتور دیگری ساخته شده | `build.bat --clean` |
 | `error C2039 ... C++20` | MSVC قدیمی | Visual Studio 2022 (۱۷٫۶ یا بالاتر) |
 | ساخت است ولی `atlas-cli.exe` پیدا نمی‌شود | خروجی جای دیگری است | `dir /s build\atlas-cli.exe` و با `--run` تست کنید |
 | مرورگر باز می‌شود ولی «atlas-cli پیدا نشد» | اجرای سرور از پوشهٔ دیگر | `run-desktop.bat` را از ریشهٔ ریپو اجرا کنید یا `ATLAS_CLI` را ست کنید |

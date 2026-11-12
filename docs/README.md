@@ -33,6 +33,7 @@
 | **19** | [identity-gate](19-identity-gate.md) | **دروازهٔ هویت و مجموعهٔ طلایی: پیاده‌سازی، کالیبراسیون، محدودیت‌ها** |
 | **20** | [degrade-restore](20-degrade-restore.md) | **حذف نویز و آرتیفکت JPEG: الگوریتم، اعداد، محدودیت‌ها (P2)** |
 | **21** | [desktop-ui](21-desktop-ui.md) | **پوستهٔ دسکتاپ: متریال Liquid Glass، معماری وب+CLI، محدودیت‌ها** |
+| **22** | [native-app](22-native-app.md) | **برنامهٔ واقعی ویندوز (Atlas.exe): پنجرهٔ نیتیو، بسته‌بندی، محدودیت‌ها** |
 | — | [notes/JOURNAL](notes/JOURNAL.md) | دفتر یادداشت‌ها (تصمیم‌ها، فرض‌ها، سؤال‌ها) |
 | — | [research/sources](research/sources.md) | منابع، تاریخ دسترسی، میزان اطمینان |
 

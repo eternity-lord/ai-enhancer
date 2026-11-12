@@ -5,6 +5,10 @@
 
 const $ = (sel) => document.querySelector(sel);
 
+// پوستهٔ اجرا: "web" (مرورگر)، "native" (پنجرهٔ سیستمی)، "glass" (پنجرهٔ بدون قاب).
+const SHELL = new URLSearchParams(location.search).get("shell") || "web";
+document.body.dataset.shell = SHELL;
+
 const FA_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
 const fa = (value) =>
   String(value)
@@ -422,6 +426,59 @@ function setView(which) {
 }
 
 /* ------------------------------------------------------------------ */
+/* کنترل پنجرهٔ نیتیو (فقط در حالت بدون قاب)                          */
+/* ------------------------------------------------------------------ */
+
+function shellApi() {
+  return window.pywebview && window.pywebview.api ? window.pywebview.api : null;
+}
+
+function bindWindowControls() {
+  const actions = { red: "close_window", yellow: "minimize_window", green: "toggle_maximize" };
+  for (const [color, method] of Object.entries(actions)) {
+    const dot = document.querySelector(`.dot.${color}`);
+    if (!dot) continue;
+    dot.setAttribute("role", "button");
+    dot.setAttribute("tabindex", "0");
+    dot.addEventListener("click", () => {
+      const api = shellApi();
+      if (api && typeof api[method] === "function") api[method]();
+    });
+  }
+
+  // کشیدن پنجره از نوار بالای پنل‌ها (بدون تداخل با دکمه‌ها و ورودی‌ها).
+  let dragging = false;
+  let lastX = 0;
+  let lastY = 0;
+  const zones = [document.querySelector(".sidebar-head"), document.querySelector(".stage-head")];
+
+  for (const zone of zones) {
+    if (!zone) continue;
+    zone.addEventListener("pointerdown", (event) => {
+      if (event.target.closest("button, select, input, label, a")) return;
+      dragging = true;
+      lastX = event.screenX;
+      lastY = event.screenY;
+    });
+  }
+
+  window.addEventListener("pointermove", (event) => {
+    if (!dragging) return;
+    const api = shellApi();
+    if (!api || typeof api.move_window !== "function") return;
+    const dx = event.screenX - lastX;
+    const dy = event.screenY - lastY;
+    if (dx === 0 && dy === 0) return;
+    lastX = event.screenX;
+    lastY = event.screenY;
+    api.move_window(dx, dy);
+  });
+
+  window.addEventListener("pointerup", () => (dragging = false));
+  window.addEventListener("blur", () => (dragging = false));
+}
+
+/* ------------------------------------------------------------------ */
 /* رویدادها                                                           */
 /* ------------------------------------------------------------------ */
 
@@ -572,6 +629,7 @@ async function init() {
   syncSliderFill(deblockSlider);
   syncRestoreControls();
   bindEvents();
+  if (SHELL === "glass") bindWindowControls();
 
   try {
     const health = await api("/api/health");

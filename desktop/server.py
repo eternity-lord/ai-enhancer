@@ -34,8 +34,26 @@ from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parent
 REPO = ROOT.parent
-WEB = ROOT / "web"
-DATA = Path(os.environ.get("ATLAS_UI_DATA", ROOT / ".data"))
+
+
+def bundle_root() -> Path:
+    """ریشهٔ فایل‌های همراه: در توسعه پوشهٔ desktop، در exe پوشهٔ استخراج PyInstaller."""
+    return Path(getattr(sys, "_MEIPASS", ROOT))
+
+
+def data_dir() -> Path:
+    """دادهٔ کار: کنار مخزن در توسعه، در پوشهٔ کاربر وقتی برنامه بسته‌بندی شده است."""
+    env = os.environ.get("ATLAS_UI_DATA")
+    if env:
+        return Path(env)
+    if getattr(sys, "frozen", False):
+        base = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or str(Path.home())
+        return Path(base) / "Atlas" / "data"
+    return ROOT / ".data"
+
+
+WEB = bundle_root() / "web"
+DATA = data_dir()
 
 MAX_UPLOAD_BYTES = 80 * 1024 * 1024
 CLI_TIMEOUT = 600
@@ -57,6 +75,11 @@ def cli_candidates(exe: str | None = None) -> list[Path]:
     for root in ("build", "build-ncnn", "build-nowebp", "build-release"):
         for sub in ("", "Release", "Debug"):
             out.append(REPO / root / sub / f"atlas-cli{exe}")
+    # وقتی برنامه بسته‌بندی شده است: کنار Atlas.exe، و داخل بستهٔ PyInstaller.
+    out.append(Path(sys.executable).resolve().parent / f"atlas-cli{exe}")
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        out.append(Path(meipass) / f"atlas-cli{exe}")
     found = shutil.which("atlas-cli")
     if found:
         out.append(Path(found))

@@ -497,6 +497,18 @@ input[type="range"]:disabled { opacity: 0.45; cursor: not-allowed; }
 body.compact .window { grid-template-columns: 214px minmax(0, 1fr) 330px; }
 body.compact .item .sub { display: none; }
 
+/* ---------------- پوستهٔ نیتیو ---------------- */
+/* در پنجرهٔ سیستمی، نوار عنوان خود ویندوز هست؛ چراغ‌های تزئینی حذف می‌شوند. */
+body[data-shell="native"] .traffic { display: none; }
+body[data-shell="native"] .sidebar-head { padding-top: 12px; }
+body[data-shell="native"] .sidebar-head .icon-btn { margin-inline-start: auto; }
+
+/* در حالت بدون قاب، چراغ‌ها واقعی‌اند. */
+body[data-shell="glass"] .dot { cursor: pointer; }
+body[data-shell="glass"] .dot:hover { filter: brightness(1.08); }
+body[data-shell="glass"] .sidebar-head,
+body[data-shell="glass"] .stage-head { cursor: default; }
+
 /* ---------------- واکنش‌گرایی ---------------- */
 @media (max-width: 1180px) {
   .window { grid-template-columns: 250px minmax(0, 1fr) 300px; gap: 12px; padding: 14px; }

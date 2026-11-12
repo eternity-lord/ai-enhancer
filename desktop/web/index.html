@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="fa" dir="ltr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Atlas — بهبوددهندهٔ تصویر</title>
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="wallpaper" aria-hidden="true">
+    <span class="bloom bloom-a"></span>
+    <span class="bloom bloom-b"></span>
+    <span class="bloom bloom-c"></span>
+    <span class="streak"></span>
+  </div>
+
+  <main class="window" id="window">
+    <!-- ================= سایدبار ================= -->
+    <aside class="pane sidebar">
+      <div class="pane-glow" aria-hidden="true"></div>
+
+      <header class="sidebar-head">
+        <div class="traffic" aria-hidden="true">
+          <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+        </div>
+        <label class="check">
+          <input type="checkbox" checked aria-label="فعال" />
+          <span class="box"></span>
+          <span class="check-text">Atlas</span>
+        </label>
+        <button class="icon-btn ghost" id="collapseBtn" title="جمع/باز کردن" aria-label="جمع کردن">
+          <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="3"/><line x1="10" y1="5" x2="10" y2="19"/></svg>
+        </button>
+      </header>
+
+      <div class="sidebar-title">
+        <span class="strong">تصاویر</span>
+        <span class="muted" id="itemCount">۰ مورد</span>
+      </div>
+
+      <nav class="tree" id="tree">
+        <p class="empty-hint">هنوز تصویری اضافه نشده.<br />عکس را اینجا رها کنید یا «+» را بزنید.</p>
+      </nav>
+
+      <footer class="sidebar-foot">
+        <button class="icon-btn" id="addBtn" title="افزودن تصویر"><span>+</span></button>
+        <button class="icon-btn" id="removeBtn" title="حذف تصویر انتخاب‌شده"><span>−</span></button>
+        <span class="foot-note">آفلاین · بدون آپلود به سرور</span>
+      </footer>
+    </aside>
+
+    <!-- ================= صحنه ================= -->
+    <section class="pane stage">
+      <div class="pane-glow" aria-hidden="true"></div>
+
+      <header class="stage-head">
+        <div class="file-meta">
+          <span class="file-name" id="fileName">بدون تصویر</span>
+          <span class="file-sub" id="fileSub">ویرایش‌شده</span>
+        </div>
+
+        <div class="stage-tools">
+          <div class="pill segmented" id="scalePill" role="group" aria-label="بزرگ‌نمایی">
+            <button data-scale="1" class="seg active">۱×</button>
+            <button data-scale="2" class="seg">۲×</button>
+            <button data-scale="3" class="seg">۳×</button>
+            <button data-scale="4" class="seg">۴×</button>
+          </div>
+
+          <button class="pill toggle-pill" id="compareBtn" aria-pressed="false">
+            <svg viewBox="0 0 24 24"><rect x="3" y="6" width="7" height="12" rx="2"/><rect x="14" y="6" width="7" height="12" rx="2"/></svg>
+            <span>مقایسه</span>
+          </button>
+
+          <div class="pill select-pill">
+            <span class="pill-label">کیفیت</span>
+            <select id="qualitySelect" aria-label="کیفیت خروجی">
+              <option value="80">۸۰٪</option>
+              <option value="92" selected>۹۲٪</option>
+              <option value="98">۹۸٪</option>
+            </select>
+          </div>
+        </div>
+      </header>
+
+      <div class="canvas" id="canvas">
+        <div class="tray" id="tray">
+          <div class="dropzone" id="dropzone">
+            <div class="dz-icon">
+              <svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+            </div>
+            <p class="dz-title">عکس را رها کنید</p>
+            <p class="dz-sub">PNG · JPEG · WebP · BMP · TGA — تا ۸۰ مگابایت</p>
+            <button class="btn glass" id="pickBtn">انتخاب فایل</button>
+          </div>
+
+          <div class="compare" id="compare" hidden>
+            <img class="layer before" id="imgBefore" alt="پیش از پردازش" />
+            <img class="layer after" id="imgAfter" alt="پس از پردازش" />
+            <div class="handle" id="handle" role="slider" tabindex="0" aria-label="مقایسه" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+              <span class="handle-grip"></span>
+            </div>
+            <div class="tag tag-before">پیش از پردازش</div>
+            <div class="tag tag-after">پس از پردازش</div>
+          </div>
+
+          <div class="busy" id="busy" hidden>
+            <div class="spinner"></div>
+            <p id="busyText">در حال پردازش…</p>
+          </div>
+        </div>
+
+        <div class="stage-foot">
+          <span class="platforms">macOS · Windows · Linux</span>
+          <div class="variants" id="variants"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= بازرس ================= -->
+    <aside class="pane inspector">
+      <div class="pane-glow" aria-hidden="true"></div>
+
+      <header class="inspector-tabs">
+        <button class="tab active" title="تنظیمات" aria-label="تنظیمات">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg>
+        </button>
+        <button class="tab" title="اطلاعات" aria-label="اطلاعات">
+          <svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>
+        </button>
+        <span class="tabs-spacer"></span>
+        <span class="badge-soft" id="engineBadge">classical</span>
+      </header>
+
+      <div class="inspector-scroll">
+        <section class="group">
+          <div class="group-head">
+            <span class="group-title">پاک‌سازی</span>
+            <label class="mini-select">
+              <select id="restoreMode">
+                <option value="auto" selected>خودکار</option>
+                <option value="manual">دستی</option>
+                <option value="off">خاموش</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="row">
+            <span class="row-label"><i class="ico noise"></i>حذف نویز</span>
+            <span class="row-control">
+              <button class="switch on" id="denoiseSwitch" role="switch" aria-checked="true"><span></span></button>
+              <output class="value" id="denoiseValue">خودکار</output>
+            </span>
+          </div>
+          <div class="slider-row">
+            <input type="range" min="0" max="100" value="35" id="denoiseRange" />
+          </div>
+
+          <div class="row">
+            <span class="row-label"><i class="ico block"></i>بلوک JPEG</span>
+            <span class="row-control">
+              <button class="switch on" id="deblockSwitch" role="switch" aria-checked="true"><span></span></button>
+              <output class="value" id="deblockValue">خودکار</output>
+            </span>
+          </div>
+          <div class="slider-row">
+            <input type="range" min="0" max="100" value="55" id="deblockRange" />
+          </div>
+        </section>
+
+        <section class="group">
+          <div class="group-head">
+            <span class="group-title">بزرگ‌نمایی</span>
+            <label class="mini-select">
+              <select id="scaleSelect">
+                <option value="1">بدون تغییر</option>
+                <option value="2" selected>۲×</option>
+                <option value="3">۳×</option>
+                <option value="4">۴×</option>
+              </select>
+            </label>
+          </div>
+          <div class="row">
+            <span class="row-label"><i class="ico grid"></i>کاشی</span>
+            <span class="row-control"><output class="value wide">۲۵۶ px</output></span>
+          </div>
+          <div class="row">
+            <span class="row-label"><i class="ico cpu"></i>هسته‌ها</span>
+            <span class="row-control"><output class="value wide" id="threadValue">—</output></span>
+          </div>
+        </section>
+
+        <section class="group">
+          <div class="group-head">
+            <span class="group-title">سنجش</span>
+            <span class="badge-soft" id="measureBadge">پس از پردازش</span>
+          </div>
+          <div class="row compact">
+            <span class="row-label">نویز σ</span>
+            <span class="row-control mono" id="mSigma">—</span>
+          </div>
+          <div class="row compact">
+            <span class="row-label">بلوک JPEG</span>
+            <span class="row-control mono" id="mBlock">—</span>
+          </div>
+          <div class="row compact">
+            <span class="row-label">زمان</span>
+            <span class="row-control mono" id="mTime">—</span>
+          </div>
+          <div class="row compact">
+            <span class="row-label">ابعاد خروجی</span>
+            <span class="row-control mono" id="mSize">—</span>
+          </div>
+        </section>
+
+        <p class="honesty" id="honesty">
+          هیچ پیکسلی «اختراع» نمی‌شود: پاک‌سازی از همسایگی خود پیکسل و بزرگ‌نمایی از
+          موتور کاشی‌ای می‌آید. اعداد بالا اندازه‌گیری‌اند، نه تخمین.
+        </p>
+      </div>
+
+      <footer class="inspector-foot">
+        <button class="btn primary" id="runBtn" disabled>
+          <span class="btn-label">پردازش</span>
+          <svg viewBox="0 0 24 24"><path d="M5 12h12M13 6l6 6-6 6"/></svg>
+        </button>
+        <button class="btn glass wide" id="downloadBtn" disabled>دانلود نتیجه</button>
+      </footer>
+    </aside>
+  </main>
+
+  <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp,image/bmp,image/x-tga,.tga" hidden />
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

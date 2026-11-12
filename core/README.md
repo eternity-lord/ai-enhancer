@@ -4,7 +4,7 @@
 همین حالا build می‌شود، روی هر سه پلتفرم (ویندوز/لینوکس/مک و بعد موبایل) کار
 می‌کند و مسیر «مدل واقعی» را هم دارد، بدون اینکه وزن‌ها وارد گیت شوند.
 
-## وضعیت فعلی (P1.6)
+## وضعیت فعلی (پایان P1)
 
 | بخش | وضعیت |
 |---|---|
@@ -22,8 +22,11 @@
 | ICC: تبدیل پروفایل ماتریسی/TRC به sRGB | ✅ (`iCCP` در PNG، `APP2` در JPEG) |
 | آلفا: PNG/TGA چهارکاناله در کل مسیر | ✅ (ncnn: آلفا با Lanczos جدا) |
 | EXIF orientation (۸ حالت) | ✅ پیش‌فرض روشن |
-| تست واحد | ✅ ۴۵ تست، صفر شکست |
-| WebP/TIFF | ⏳ P1-08 |
+| WebP (decode/encode، اختیاری با libwebp) | ✅ بدون libwebp هم build سالم است |
+| متادیتا: انتقال EXIF + برچسب sRGB خروجی | ✅ (`--keep-metadata` پیش‌فرض خاموش) |
+| آمادگی Vulkan (`--gpu`) | ✅ کد؛ عدد GPU در این محیط اندازه‌گیری نشد |
+| تست واحد | ✅ ۴۹ تست، صفر شکست |
+| TIFF/AVIF/HEIC | ⏳ P2 |
 | LPIPS/DISTS و ArcFace | ⏳ P3 |
 
 ## ساخت و اجرا
@@ -41,7 +44,7 @@ cmake --build build -j
 ./build/atlas-cli eval a.png b.png --json            # برای CI/پنل ارزیابی
 ./build/atlas-cli convert p3.jpg srgb.png            # تبدیل ICC → sRGB (پیش‌فرض)
 ./build/atlas-cli convert p3.jpg raw.png --no-color-manage  # بدون تبدیل پروفایل
-./build/atlas-tests                                   # ۴۵ تست
+./build/atlas-tests                                   # ۴۹ تست
 ```
 
 ### مسیر مدل واقعی (ncnn)
@@ -89,13 +92,13 @@ GPU (Vulkan) پیش‌فرض می‌شود و CPU فقط fallback است. اعد
 include/atlas/   atlas.h (C ABI), types.h, image.h, buffer.h, image_io.h, backend.h, sr.h, …
 src/api/         context.cpp (ABI + فهرست واقعی دستگاه‌ها)
 src/image/       buffer.cpp, tiling.cpp, classical.cpp, color.cpp
-src/io/          stb_impl.cpp (فقط implementation), image_io.cpp (codec+meta), exif.cpp, icc.cpp, ppm.cpp (قدیمی)
+src/io/          stb_impl.cpp, image_io.cpp (codec+meta), exif.cpp, icc.cpp, metadata.cpp, webp.cpp, ppm.cpp (قدیمی)
 src/backend/     classical_backend.cpp, ncnn_backend.cpp
 src/stages/      sr.cpp (کاشی + دوخت)
 src/metrics/     metrics.cpp (PSNR/SSIM/MAE)
 src/util/        log.cpp, errors.cpp
 third_party/stb/ stb_image.h, stb_image_write.h + LICENSE
-tests/           test.h, test_main.cpp, test_{tiling,classical,ppm,image_io,sr,metrics,color,exif,icc}.cpp
+tests/           test.h, test_main.cpp, test_{tiling,classical,ppm,image_io,sr,metrics,color,exif,icc,metadata}.cpp
 ../cli/main.cpp  atlas-cli
 ```
 
@@ -125,6 +128,9 @@ tests/           test.h, test_main.cpp, test_{tiling,classical,ppm,image_io,sr,m
 | `include/atlas/icc.h` + `src/io/icc.cpp` | ماتریس + TRC (`curv`/`para` ۰..۴)، LUT ۴۰۹۶، رد پروفایل LUT-based با گزارش صادقانه. |
 | `src/io/image_io.cpp` (آلفا) | PNG/TGA چهارکاناله می‌مانند؛ JPEG/BMP آلفا را کنار می‌گذارند **بدون** ضرب در آلفا. |
 | `tests/test_icc.cpp` | پروفایل ساختگی در تست ساخته می‌شود (بدون فایل مجوزدار)؛ تست طلایی: sRGB→sRGB باید بایت‌به‌بایت یکسان باشد. |
+| `src/io/webp.cpp` | وابستگی اختیاری؛ بدون libwebp پیام روشن، نه crash. آلفای مات توسط encoder حذف می‌شود. |
+| `src/io/metadata.cpp` | انتقال EXIF (eXIf/APP1) + برچسب sRGB؛ iCCP **قبل از IDAT**، APP2 شکسته‌شده. |
+| `src/backend/ncnn_backend.cpp` | `--gpu` → `ncnn-vulkan` فقط اگر Vulkan کامپایل شده و دستگاه موجود باشد. |
 | `../tools/fetch_models.py` | چون assetهای Release گیت‌هاب در محیط بسته دانلود نمی‌شوند، مسیر «استخراج از wheel پایتون PyPI» اضافه شد؛ sha256 هر فایل چک می‌شود. |
 
 ## کار بعدی (P1 ادامه)

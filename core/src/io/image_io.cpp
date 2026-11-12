@@ -40,6 +40,7 @@ bool load_image(const std::string& path, ImageF32* out, std::string* error) {
   if (ext == ".ppm" || ext == ".pgm") {
     return read_ppm(path, out, error);
   }
+  if (ext == ".webp") return load_webp(path, out, error);
 
   // آلفا حفظ می‌شود: PNG/TGA با شفافیت نباید بی‌سروصدا RGB شوند، وگرنه
   // خروجی «پس‌زمینهٔ سیاه» می‌گیرد و کاربر فکر می‌کند فایل خراب شده است.
@@ -84,6 +85,8 @@ bool save_image(const std::string& path, const ImageF32& img, int jpeg_quality,
   const std::string ext = lower_extension(path);
   const bool has_alpha = img.channels() == 4;
 
+  if (ext == ".webp") return save_webp(path, img, jpeg_quality, error);
+
   if (ext == ".ppm" || ext == ".pgm") {
     if (!has_alpha) return write_ppm(path, img, error);
     ImageF32 rgb(img.width(), img.height(), 3);
@@ -125,7 +128,8 @@ bool save_image(const std::string& path, const ImageF32& img, int jpeg_quality,
   } else if (ext == ".tga") {
     ok = stbi_write_tga(path.c_str(), w, h, comp, bytes.data());
   } else {
-    return append_error(error, "unsupported output extension (use .png/.jpg/.bmp/.tga/.ppm)");
+    return append_error(error,
+                        "unsupported output extension (use .png/.jpg/.webp/.bmp/.tga/.ppm)");
   }
   if (!ok) return append_error(error, "encoder failed");
   return true;

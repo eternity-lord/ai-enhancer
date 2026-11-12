@@ -16,6 +16,7 @@
 #include "atlas/image.h"
 #include "atlas/exif.h"
 #include "atlas/image_io.h"
+#include "atlas/metadata.h"
 #include "atlas/metrics.h"
 #include "atlas/sr.h"
 #include "atlas/version.h"
@@ -38,6 +39,8 @@ struct Options {
   bool quiet = false;
   bool auto_orient = true;
   bool color_manage = true;
+  bool keep_metadata = false;
+  bool use_gpu = false;
   bool json = false;
   double min_psnr = -1.0;
   double min_ssim = -1.0;
@@ -59,12 +62,14 @@ void print_usage() {
       "  --weights PATH   ncnn .bin file\n"
       "  --backend NAME   auto | classical | ncnn\n"
       "  --threads N      CPU threads (default: hardware concurrency)\n"
+      "  --gpu            use Vulkan when ncnn was built with it (falls back to CPU)\n"
       "  --fp16           request fp16 (GPU backends; CPU ignores)\n"
       "  --sharpen P      classical unsharp amount 0..100 (default 20)\n"
       "  --quality N      JPEG quality 1..100 (default 92)\n"
       "  --quiet          no progress output\n"
       "  --no-auto-orient ignore EXIF orientation (default: apply it)\n"
       "  --no-color-manage ignore the ICC profile (default: convert to sRGB)\n"
+      "  --keep-metadata  copy source EXIF into the output (off: GPS/privacy)\n"
       "  --json           (eval) machine-readable JSON output\n"
       "  --min-psnr X     (eval) fail if PSNR < X dB\n"
       "  --min-ssim Y     (eval) fail if SSIM < Y\n",
@@ -92,6 +97,8 @@ bool parse_args(int argc, char** argv, Options* opt) {
       opt->auto_orient = false;
     } else if (arg == "--no-color-manage") {
       opt->color_manage = false;
+    } else if (arg == "--keep-metadata") {
+      opt->keep_metadata = true;
     } else if (arg == "--json") {
       opt->json = true;
     } else if (arg == "--min-psnr") {
@@ -110,6 +117,8 @@ bool parse_args(int argc, char** argv, Options* opt) {
       opt->quiet = true;
     } else if (arg == "--fp16") {
       opt->fp16 = true;
+    } else if (arg == "--gpu") {
+      opt->use_gpu = true;
     } else if (arg == "--scale") {
       if (!need(&opt->scale)) return false;
     } else if (arg == "--tile") {
@@ -156,6 +165,30 @@ bool load_ready(const std::string& path, bool auto_orient, bool color_manage,
   return true;
 }
 
+// بعد از نوشتن فایل: برچسب sRGB (اگر تبدیل رنگ انجام شده) و انتقال EXIF.
+void finalize_output(const std::string& in_path, const std::string& out_path,
+                     const atlas::ImageMeta& meta, const Options& opt) {
+  std::string error;
+  const std::string ext = out_path.substr(out_path.find_last_of('.') + 1);
+  const bool raster = ext == "png" || ext == "jpg" || ext == "jpeg";
+
+  if (raster && (meta.icc_applied || opt.keep_metadata)) {
+    if (atlas::tag_srgb_profile(out_path, &error)) {
+      if (!opt.quiet) std::printf("icc   : embedded sRGB profile\n");
+    } else if (!opt.quiet) {
+      std::printf("icc   : not embedded (%s)\n", error.c_str());
+    }
+  }
+
+  if (opt.keep_metadata) {
+    if (atlas::keep_exif_metadata(in_path, out_path, &error)) {
+      if (!opt.quiet) std::printf("exif  : copied from source\n");
+    } else if (!opt.quiet) {
+      std::printf("exif  : not copied (%s)\n", error.c_str());
+    }
+  }
+}
+
 void print_color_line(const atlas::ImageMeta& meta) {
   if (meta.icc_applied) {
     std::printf("color : %s -> sRGB\n", meta.icc_description.c_str());
@@ -187,6 +220,8 @@ int main(int argc, char** argv) {
 
   if (cmd == "devices") {
     std::printf("%s\n", atlas_devices_json(ctx));
+    const int vulkan = atlas::vulkan_device_count();
+    if (vulkan > 0) std::printf("vulkan: %d device(s)\n", vulkan);
     atlas_destroy(ctx);
     return 0;
   }
@@ -263,6 +298,7 @@ int main(int argc, char** argv) {
       atlas_destroy(ctx);
       return 1;
     }
+    finalize_output(copt.in_path, copt.out_path, meta, copt);
     if (!copt.quiet) {
       std::printf("%dx%d (%d ch, exif=%s) -> %s\n", img.width(), img.height(), img.channels(),
                   meta.orientation > 0 ? std::to_string(meta.orientation).c_str() : "none",
@@ -314,7 +350,7 @@ int main(int argc, char** argv) {
   if (want_ncnn) {
     const int model_scale = opt.scale > 0 ? opt.scale : 4;
     backend = atlas::make_ncnn_backend(opt.param_path, opt.bin_path, model_scale, threads,
-                                       opt.fp16);
+                                       opt.fp16, opt.use_gpu);
     if (!backend) {
       std::fprintf(stderr, "failed to load model: %s / %s\n", opt.param_path.c_str(),
                    opt.bin_path.c_str());
@@ -391,6 +427,7 @@ int main(int argc, char** argv) {
     atlas_destroy(ctx);
     return 1;
   }
+  finalize_output(opt.in_path, opt.out_path, meta, opt);
 
   if (!opt.quiet) {
     std::printf("output: %dx%d (%.2f MP) in %.2fs (%.2f MP/s) -> %s\n", upscaled.width(),

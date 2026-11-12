@@ -51,7 +51,7 @@ ai-enhancer/
 | P0-08/P0-09 tiling/blend | ✅ / ✅ | کاشی با تست پوشش + دوخت raised-cosine با تست «تصویر ثابت» |
 | P0-10 classical backend | ✅ | Lanczos+unsharp؛ ۹٫۱ MP/s (۲ هسته) |
 | P0-11/12 context+CLI | ✅ | `version`/`devices`/`convert`/`enhance` + `--param/--weights/--tile/--overlap/--threads/--fp16` |
-| P0-13 tests | ✅ | **۴۵ تست**، صفر شکست |
+| P0-13 tests | ✅ | **۴۹ تست**، صفر شکست (با و بدون WebP) |
 | P1-01 ncnn backend | ✅ (CPU) | `ATLAS_WITH_NCNN=ON`; pad-to-8 + crop؛ Vulkan فلگ بعدی |
 | P1-02 model registry | ✅ (سبک) | `tools/fetch_models.py` با sha256 + مسیر آفلاین `--from-dir` |
 | P1-03 SR کاشی‌ای واقعی | ✅ | x4plus و animevideov3-x2/x3/x4 روی عکس واقعی اجرا شد |
@@ -59,7 +59,10 @@ ai-enhancer/
 | P1-05 EXIF orientation | ✅ | ۸ حالت EXIF + پارسر APP1 (فقط ۱۲۸KB اول فایل)، پیش‌فرض روشن |
 | P1-06 ICC | ✅ | پروفایل ماتریسی/TRC (sRGB/P3/AdobeRGB) + iCCP در PNG و APP2 در JPEG؛ LUT-based رد می‌شود |
 | P1-07 آلفا | ✅ | PNG/TGA چهارکاناله، مسیر SR و بک‌اند ncnn آلفا را حفظ می‌کند |
-| P1-08 WebP/TIFF | ⏳ | WebP نیاز به decoder اختصاصی (libwebp) دارد |
+| P1-08 WebP | ✅ | decoder/encoder اختیاری با libwebp؛ بدون آن build سالم است و پیام روشن می‌دهد |
+| P1-09 متادیتا | ✅ | انتقال EXIF (opt-in) + برچسب sRGB در خروجی (iCCP/APP2) |
+| P1-10 GPU plumbing | ✅ (کد) | `--gpu` + `vulkan_device_count()`؛ سندباکس دستگاه Vulkan ندارد |
+| TIFF/AVIF/HEIC | ⏳ | P2 (نیاز به libtiff/libavif/libheif) |
 | P3-04 متریک‌ها | 🟡 (شروع) | PSNR/SSIM/MAE/max-abs در `core/src/metrics` + `atlas-cli eval`؛ LPIPS/DISTS و ArcFace هنوز نه |
 
 **Gate P0/P1 فعلی:** روی CPU سبز است. برای «روی iGPU» فقط باید ncnn با
@@ -151,6 +154,42 @@ PNG/TGA چهارکاناله می‌مانند، `sr_tiled` آلفا را با �
 بک‌اند ncnn آلفا را **با Lanczos** (نه با مدل) بزرگ می‌کند تا لبه‌های شفافیت
 هاله نگیرند. JPEG/BMP آلفا ندارند؛ آلفا کنار گذاشته می‌شود بدون اینکه رنگ در
 آلفا ضرب شود (خطای رایج: خروجی سیاه).
+
+## ۱.۹ P1.7 — WebP، متادیتا، و آمادگی GPU
+
+**WebP.** وابستگی **اختیاری**: اگر libwebp باشد کامپایل و فعال می‌شود
+(`find_package(WebP)`)، اگر نباشد build سالم می‌ماند و فقط پیام روشن می‌دهد
+«this build has no WebP support». دلیل: ویندوز/موبایل ممکن است libwebp نداشته
+باشند، ولی وب و اندروید پر از WebP است. آلفا حفظ می‌شود (آلفای کاملاً مات توسط
+encoder حذف می‌شود — رفتار درست).
+
+**متادیتا (وفاداری فایل).** دو کار، هر دو «برش و چسباندن» استاندارد بدون
+کتابخانهٔ اضافه:
+- انتقال EXIF از مبدأ به مقصد (`--keep-metadata`) — **پیش‌فرض خاموش**، چون EXIF
+  شامل GPS است و انتشار تصویر با مکان، ریسک خصوصی است.
+- برچسب sRGB در خروجی: اگر تبدیل رنگ انجام شده باشد، پروفایل sRGB جاسازی می‌شود
+  (`iCCP` در PNG قبل از IDAT، `APP2` در JPEG با شکستن به تکه‌های ≤۶۵۵۱۹ بایت).
+
+**آمادگی GPU.** `--gpu` به بک‌اند ncnn می‌رود؛ اگر ncnn با Vulkan ساخته شده و
+دستگاه موجود باشد `name()` می‌شود `ncnn-vulkan`، وگرنه بی‌صدا `ncnn-cpu`.
+`devices` تعداد دستگاه Vulkan را گزارش می‌کند (در این سندباکس: ۰).
+
+## ۱.۱۰ جمع‌بندی فاز P1 (پایان P1)
+
+| خروجی P1 | وضعیت |
+|---|---|
+| کدک واقعی (JPEG/PNG/BMP/TGA/WebP) + آلفا + ۱۶ بیت | ✅ |
+| ICC (ماتریسی/TRC، P3/D50) → sRGB | ✅ |
+| EXIF orientation (۸ حالت) | ✅ |
+| بک‌اند ncnn (CPU؛ آمادهٔ Vulkan) + SR کاشی‌ای | ✅ |
+| متریک PSNR/SSIM + `eval` با دروازهٔ CI | ✅ |
+| انتقال EXIF + برچسب sRGB در خروجی | ✅ |
+| ۴۹ تست، صفر شکست، دو پیکربندی build | ✅ |
+| ویدیو، چهره، نویز/JPEG، دیفیوژن، UI | ❌ (P2..P6) |
+
+**آنچه P1 عمداً انجام نداده:** هیچ مرحلهٔ «بازسازی محتوا» (چهره/نویز/دیفیوژن)
+در P1 نیست. دلیل: تا وقتی مسیر رنگ/فرمت/متریک درست نشده، هر عدد کیفیتی
+بی‌معنی است. P1 زیرساخت اندازه‌گیری را ساخت؛ P2 محتوا را.
 
 ## ۲. فاز P0 — اسکلت اجرایی (۱۵ نفر-روز)
 

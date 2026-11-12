@@ -11,6 +11,11 @@
 
 #ifdef ATLAS_WITH_NCNN
 #include "net.h"
+// ncnn با #cmakedefine01 یعنی NCNN_VULKAN همیشه تعریف شده است (۰ یا ۱)، پس
+// #ifdef غلط است و باید مقدارش بررسی شود.
+#if NCNN_VULKAN
+#include "gpu.h"  // ncnn::get_gpu_count
+#endif
 
 #include "atlas/buffer.h"
 #include "atlas/image.h"
@@ -20,9 +25,19 @@ namespace {
 
 class NcnnBackend final : public IBackend {
  public:
-  NcnnBackend(std::string param, std::string bin, int scale, int threads, bool fp16)
+  NcnnBackend(std::string param, std::string bin, int scale, int threads, bool fp16,
+              bool use_gpu)
       : param_(std::move(param)), bin_(std::move(bin)), scale_(scale) {
     net_.opt.use_vulkan_compute = false;
+#if NCNN_VULKAN
+    // فقط اگر Vulkan در ncnn کامپایل شده و دستگاه واقعی وجود دارد.
+    if (use_gpu && ncnn::get_gpu_count() > 0) {
+      net_.opt.use_vulkan_compute = true;
+      gpu_ = true;
+    }
+#else
+    (void)use_gpu;
+#endif
     net_.opt.use_packing_layout = false;
     net_.opt.use_fp16_packed = fp16;
     net_.opt.use_fp16_storage = fp16;
@@ -31,7 +46,7 @@ class NcnnBackend final : public IBackend {
     ok_ = net_.load_param(param_.c_str()) == 0 && net_.load_model(bin_.c_str()) == 0;
   }
 
-  const char* name() const override { return "ncnn-cpu"; }
+  const char* name() const override { return gpu_ ? "ncnn-vulkan" : "ncnn-cpu"; }
   int scale() const override { return scale_; }
   bool ok() const override { return ok_; }
 
@@ -118,6 +133,7 @@ class NcnnBackend final : public IBackend {
   std::string bin_;
   int scale_;
   bool ok_ = false;
+  bool gpu_ = false;
   ncnn::Net net_;
 };
 
@@ -125,14 +141,22 @@ class NcnnBackend final : public IBackend {
 
 std::unique_ptr<IBackend> make_ncnn_backend(const std::string& param_path,
                                             const std::string& bin_path, int scale,
-                                            int threads, bool fp16) {
+                                            int threads, bool fp16, bool use_gpu) {
   if (scale < 1 || scale > 16) return nullptr;
-  auto backend = std::make_unique<NcnnBackend>(param_path, bin_path, scale, threads, fp16);
+  auto backend = std::make_unique<NcnnBackend>(param_path, bin_path, scale, threads, fp16, use_gpu);
   if (!backend->ok()) return nullptr;
   return backend;
 }
 
 bool ncnn_compiled() { return true; }
+
+int vulkan_device_count() {
+#if NCNN_VULKAN
+  return ncnn::get_gpu_count();
+#else
+  return 0;
+#endif
+}
 
 }  // namespace atlas
 
@@ -141,11 +165,13 @@ bool ncnn_compiled() { return true; }
 namespace atlas {
 
 std::unique_ptr<IBackend> make_ncnn_backend(const std::string&, const std::string&, int,
-                                            int, bool) {
+                                            int, bool, bool) {
   return nullptr;
 }
 
 bool ncnn_compiled() { return false; }
+
+int vulkan_device_count() { return 0; }
 
 }  // namespace atlas
 

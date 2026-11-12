@@ -16,6 +16,8 @@
 #include "atlas/image.h"
 #include "atlas/exif.h"
 #include "atlas/image_io.h"
+#include "atlas/golden.h"
+#include "atlas/identity.h"
 #include "atlas/metadata.h"
 #include "atlas/metrics.h"
 #include "atlas/sr.h"
@@ -29,6 +31,8 @@ struct Options {
   std::string param_path;
   std::string bin_path;
   std::string backend = "auto";
+  std::string face_box;  // "x,y,w,h" نرمال‌شده برای gate
+  bool reference_mode = false;
   int scale = 0;  // 0 = auto
   int tile = 256;
   int overlap = 32;
@@ -41,6 +45,7 @@ struct Options {
   bool color_manage = true;
   bool keep_metadata = false;
   bool use_gpu = false;
+  bool allow_missing = false;
   bool json = false;
   double min_psnr = -1.0;
   double min_ssim = -1.0;
@@ -53,6 +58,8 @@ void print_usage() {
       "  atlas-cli version | devices\n"
       "  atlas-cli convert <in> <out> [--quality N] [--no-auto-orient]\n"
       "  atlas-cli eval <a> <b> [--json] [--min-psnr X] [--min-ssim Y]\n"
+      "  atlas-cli gate <original> <restored> [--face x,y,w,h] [--ref] [--json]\n"
+      "  atlas-cli eval-set <manifest.tsv> [--json] [--allow-missing]\n"
       "  atlas-cli enhance <in.(jpg|png|bmp|tga|ppm)> <out> [options]\n"
       "Options:\n"
       "  --scale N        upscale factor (default: model scale, else 2)\n"
@@ -85,8 +92,30 @@ bool parse_int(const char* s, int* out) {
   return true;
 }
 
-bool parse_args(int argc, char** argv, Options* opt) {
-  for (int i = 4; i < argc; ++i) {
+bool parse_face_box(const std::string& text, atlas::NormBox* box) {
+  float v[4] = {0, 0, 0, 0};
+  int found = 0;
+  size_t start = 0;
+  while (found < 4 && start <= text.size()) {
+    const size_t comma = text.find(',', start);
+    const std::string cell = text.substr(start, comma == std::string::npos ? std::string::npos
+                                                                          : comma - start);
+    char* end = nullptr;
+    const double value = std::strtod(cell.c_str(), &end);
+    if (cell.empty() || end == cell.c_str() || *end != '\0') return false;
+    v[found++] = static_cast<float>(value);
+    if (comma == std::string::npos) break;
+    start = comma + 1;
+  }
+  if (found != 4) return false;
+  *box = atlas::NormBox{v[0], v[1], v[2], v[3]};
+  return box->w > 0.0f && box->h > 0.0f;
+}
+
+// first: اولین آرگومان اختیاری؛ برای دستورهایی که تعداد پارامتر positional
+// متفاوتی دارند (مثل eval-set با یک پارامتر) وگرنه فلگ‌ها بی‌صدا نادیده می‌مانند.
+bool parse_args(int argc, char** argv, Options* opt, int first = 4) {
+  for (int i = first; i < argc; ++i) {
     const std::string arg = argv[i];
     const bool has_next = (i + 1) < argc;
     auto need = [&](int* target) {
@@ -99,6 +128,12 @@ bool parse_args(int argc, char** argv, Options* opt) {
       opt->color_manage = false;
     } else if (arg == "--keep-metadata") {
       opt->keep_metadata = true;
+    } else if (arg == "--allow-missing") {
+      opt->allow_missing = true;
+    } else if (arg == "--ref") {
+      opt->reference_mode = true;
+    } else if (arg == "--face" && has_next) {
+      opt->face_box = argv[++i];
     } else if (arg == "--json") {
       opt->json = true;
     } else if (arg == "--min-psnr") {
@@ -224,6 +259,132 @@ int main(int argc, char** argv) {
     if (vulkan > 0) std::printf("vulkan: %d device(s)\n", vulkan);
     atlas_destroy(ctx);
     return 0;
+  }
+
+  // gate: دروازهٔ هویت روی یک جفت (اصلی، بازسازی‌شده). توجه: score روی مقیاس
+  // پروکسی است (نه ArcFace)؛ در خروجی صریح گفته می‌شود.
+  if (cmd == "gate" && argc >= 4) {
+    Options gopt;
+    gopt.in_path = argv[2];
+    gopt.out_path = argv[3];
+    if (!parse_args(argc, argv, &gopt)) {
+      atlas_destroy(ctx);
+      return 2;
+    }
+    atlas::ImageF32 original;
+    atlas::ImageF32 restored;
+    atlas::ImageMeta meta_a;
+    atlas::ImageMeta meta_b;
+    std::string error;
+    if (!load_ready(gopt.in_path, gopt.auto_orient, gopt.color_manage, &original, &meta_a,
+                    &error)) {
+      std::fprintf(stderr, "cannot load %s: %s\n", gopt.in_path.c_str(), error.c_str());
+      atlas_destroy(ctx);
+      return 1;
+    }
+    if (!load_ready(gopt.out_path, gopt.auto_orient, gopt.color_manage, &restored, &meta_b,
+                    &error)) {
+      std::fprintf(stderr, "cannot load %s: %s\n", gopt.out_path.c_str(), error.c_str());
+      atlas_destroy(ctx);
+      return 1;
+    }
+
+    atlas::IdentityOptions opt;
+    opt.reference_mode = gopt.reference_mode;
+    if (!gopt.face_box.empty() && !parse_face_box(gopt.face_box, &opt.face)) {
+      std::fprintf(stderr, "--face needs x,y,w,h in 0..1 (example: 0.3,0.2,0.4,0.5)\n");
+      atlas_destroy(ctx);
+      return 2;
+    }
+
+    const atlas::IdentityResult r = atlas::identity_gate(original, restored, opt);
+    if (!r.valid) {
+      std::fprintf(stderr, "gate failed: %s\n", r.note.c_str());
+      atlas_destroy(ctx);
+      return 1;
+    }
+    if (gopt.json) {
+      std::printf(
+          "{\"id_score\":%.4f,\"threshold\":%.4f,\"pass\":%s,\"scale\":\"%s\","
+          "\"arcface_threshold\":%.4f,\"face_px\":%d,\"structural\":%.4f,"
+          "\"shape\":%.4f,\"color\":%.4f}\n",
+          r.score, r.threshold, r.pass ? "true" : "false", r.proxy_scale ? "proxy" : "arcface",
+          r.arcface_threshold, r.face_px, r.structural, r.shape, r.color);
+    } else {
+      std::printf("id score : %.3f (threshold %.2f, %s scale)\n", r.score, r.threshold,
+                  r.proxy_scale ? "proxy" : "ArcFace");
+      std::printf("parts    : structural %.3f | shape %.3f | color %.3f\n", r.structural,
+                  r.shape, r.color);
+      std::printf("face     : %d px (%s mode)\n", r.face_px,
+                  gopt.reference_mode ? "reference-locked" : "blind");
+      std::printf("verdict  : %s\n", r.pass ? "PASS" : "FAIL");
+      if (r.proxy_scale) {
+        std::printf(
+            "note     : پروکسی ساختاری است، نه ArcFace؛ عدد آن با آستانهٔ %.2f (docs/15) "
+            "قابل مقایسه نیست.\n",
+            r.arcface_threshold);
+      }
+    }
+    atlas_destroy(ctx);
+    return r.pass ? 0 : 1;
+  }
+
+  // eval-set: دروازهٔ هویت روی یک مانیفست TSV (docs/17).
+  if (cmd == "eval-set" && argc >= 3) {
+    Options sopt;
+    sopt.in_path = argv[2];  // مسیر مانیفست
+    if (!parse_args(argc, argv, &sopt, 3)) {
+      atlas_destroy(ctx);
+      return 2;
+    }
+    std::vector<atlas::GoldenRow> rows;
+    std::string error;
+    if (!atlas::load_manifest(sopt.in_path, &rows, &error)) {
+      std::fprintf(stderr, "%s\n", error.c_str());
+      atlas_destroy(ctx);
+      return 2;
+    }
+    atlas::GoldenRunOptions run;
+    run.allow_missing = sopt.allow_missing;
+    const size_t slash = sopt.in_path.find_last_of('/');
+    run.base_dir = slash == std::string::npos ? std::string() : sopt.in_path.substr(0, slash);
+
+    const atlas::GoldenReport report = atlas::run_golden(rows, run);
+    if (sopt.json) {
+      std::printf("{\"total\":%d,\"ran\":%d,\"passed\":%d,\"missing\":%d,"
+                  "\"pass_rate\":%.4f,\"median_score\":%.4f,\"min_score\":%.4f,\"cases\":[",
+                  report.total, report.ran, report.passed, report.missing, report.pass_rate(),
+                  report.median_score, report.min_score);
+      bool first = true;
+      for (const auto& c : report.cases) {
+        if (!first) std::printf(",");
+        first = false;
+        if (c.identity.valid) {
+          std::printf("{\"id\":\"%s\",\"score\":%.4f,\"pass\":%s,\"face_px\":%d}",
+                      c.id.c_str(), c.identity.score, c.identity.pass ? "true" : "false",
+                      c.identity.face_px);
+        } else {
+          std::printf("{\"id\":\"%s\",\"error\":\"%s\"}", c.id.c_str(), c.error.c_str());
+        }
+      }
+      std::printf("]}\n");
+    } else {
+      for (const auto& c : report.cases) {
+        if (c.identity.valid) {
+          std::printf("%-24s score %.3f  face %4d px  %s\n", c.id.c_str(), c.identity.score,
+                      c.identity.face_px, c.identity.pass ? "PASS" : "FAIL");
+        } else {
+          std::printf("%-24s skipped (%s)\n", c.id.c_str(), c.error.c_str());
+        }
+      }
+      std::printf("\n%d/%d ran, %d passed (%.1f%%), median %.3f, min %.3f, missing %d\n",
+                  report.ran, report.total, report.passed, report.pass_rate() * 100.0,
+                  report.median_score, report.min_score, report.missing);
+      std::printf("acceptance (docs/17: >=95%% pass, median >=0.65): %s\n",
+                  atlas::golden_meets_acceptance(report) ? "PASS" : "FAIL");
+    }
+    atlas_destroy(ctx);
+    return atlas::golden_meets_acceptance(report) ? 0 : 1;
   }
 
   // eval: اندازه‌گیری کیفیت دو تصویر. خروجی JSON برای CI و پنل ارزیابی

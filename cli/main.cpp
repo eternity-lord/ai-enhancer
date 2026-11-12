@@ -20,6 +20,7 @@
 #include "atlas/identity.h"
 #include "atlas/metadata.h"
 #include "atlas/metrics.h"
+#include "atlas/restore.h"
 #include "atlas/sr.h"
 #include "atlas/version.h"
 
@@ -32,6 +33,9 @@ struct Options {
   std::string bin_path;
   std::string backend = "auto";
   std::string face_box;  // "x,y,w,h" نرمال‌شده برای gate
+  // "auto" | "off" | درصد ۰..۱۰۰ — پیش‌فرض هر دستور جداگانه تعیین می‌شود.
+  std::string denoise_mode;
+  std::string deblock_mode;
   bool reference_mode = false;
   int scale = 0;  // 0 = auto
   int tile = 256;
@@ -60,6 +64,7 @@ void print_usage() {
       "  atlas-cli eval <a> <b> [--json] [--min-psnr X] [--min-ssim Y]\n"
       "  atlas-cli gate <original> <restored> [--face x,y,w,h] [--ref] [--json]\n"
       "  atlas-cli eval-set <manifest.tsv> [--json] [--allow-missing]\n"
+      "  atlas-cli restore <in> <out> [--denoise auto|off|N] [--deblock auto|off|N] [--json]\n"
       "  atlas-cli enhance <in.(jpg|png|bmp|tga|ppm)> <out> [options]\n"
       "Options:\n"
       "  --scale N        upscale factor (default: model scale, else 2)\n"
@@ -77,7 +82,9 @@ void print_usage() {
       "  --no-auto-orient ignore EXIF orientation (default: apply it)\n"
       "  --no-color-manage ignore the ICC profile (default: convert to sRGB)\n"
       "  --keep-metadata  copy source EXIF into the output (off: GPS/privacy)\n"
-      "  --json           (eval) machine-readable JSON output\n"
+      "  --denoise MODE   noise reduction before SR: auto | off | 0..100 (default: auto)\n"
+      "  --deblock MODE   JPEG 8x8 deblocking: auto | off | 0..100 (default: auto)\n"
+      "  --json           (eval/restore) machine-readable JSON output\n"
       "  --min-psnr X     (eval) fail if PSNR < X dB\n"
       "  --min-ssim Y     (eval) fail if SSIM < Y\n",
       ATLAS_VERSION_STRING);
@@ -134,6 +141,10 @@ bool parse_args(int argc, char** argv, Options* opt, int first = 4) {
       opt->reference_mode = true;
     } else if (arg == "--face" && has_next) {
       opt->face_box = argv[++i];
+    } else if (arg == "--denoise" && has_next) {
+      opt->denoise_mode = argv[++i];
+    } else if (arg == "--deblock" && has_next) {
+      opt->deblock_mode = argv[++i];
     } else if (arg == "--json") {
       opt->json = true;
     } else if (arg == "--min-psnr") {
@@ -182,6 +193,52 @@ bool parse_args(int argc, char** argv, Options* opt, int first = 4) {
 
 // خواندن + مدیریت رنگ + جهت. هر جای دیگری که تصویر را از دیسک می‌خوانیم باید
 // از این تابع استفاده کند، وگرنه یک مسیر بی‌سروصدا رنگ یا چرخش را از دست می‌دهد.
+// "auto" → -1 (خودکار)، "off" → 0، عدد ۰..۱۰۰ → شدت. ورودی نامعتبر false.
+bool parse_restore_mode(const std::string& text, float* out) {
+  if (text == "auto") {
+    *out = -1.0f;
+    return true;
+  }
+  if (text == "off" || text == "none" || text == "0") {
+    *out = 0.0f;
+    return true;
+  }
+  int pct = 0;
+  if (!parse_int(text.c_str(), &pct) || pct < 0 || pct > 100) return false;
+  *out = static_cast<float>(pct) / 100.0f;
+  return true;
+}
+
+// اعمال مرحلهٔ P2 با گزارش اعداد قبل/بعد. اعداد چاپ می‌شوند تا کاربر بداند
+// چه اتفاقی افتاده، نه اینکه «جادو» ببیند.
+bool apply_restore(const atlas::ImageF32& src, const std::string& denoise,
+                   const std::string& deblock, bool quiet, atlas::ImageF32* out,
+                   atlas::RestoreReport* report, int* exit_code) {
+  atlas::RestoreOptions ropt;
+  if (!denoise.empty() && !parse_restore_mode(denoise, &ropt.denoise)) {
+    std::fprintf(stderr, "invalid --denoise value: %s (auto|off|0..100)\n", denoise.c_str());
+    *exit_code = 2;
+    return false;
+  }
+  if (!deblock.empty() && !parse_restore_mode(deblock, &ropt.deblock)) {
+    std::fprintf(stderr, "invalid --deblock value: %s (auto|off|0..100)\n", deblock.c_str());
+    *exit_code = 2;
+    return false;
+  }
+  *out = atlas::restore_degraded(src, ropt, report);
+  if (!quiet) {
+    std::printf("restore: noise σ %.4f -> %.4f | blockiness %.4f -> %.4f (ratio %.2f -> %.2f)\n",
+                report->before.sigma, report->after.sigma, report->before.blockiness,
+                report->after.blockiness, report->before.blockiness_ratio,
+                report->after.blockiness_ratio);
+    std::printf("         deblock %s (%.2f) | denoise %s (%.2f) | %.0f ms\n",
+                report->deblock_applied ? "on" : "off", report->deblock_strength,
+                report->denoise_applied ? "on" : "off", report->denoise_strength,
+                report->seconds * 1000.0);
+  }
+  return true;
+}
+
 bool load_ready(const std::string& path, bool auto_orient, bool color_manage,
                 atlas::ImageF32* img, atlas::ImageMeta* meta, std::string* error) {
   if (!atlas::load_image_ex(path, img, meta, error)) return false;
@@ -470,6 +527,58 @@ int main(int argc, char** argv) {
     return 0;
   }
 
+  // restore: فقط مرحلهٔ P2 (نویز + JPEG)، بدون بزرگ‌نمایی. برای وقتی که کاربر
+  // می‌خواهد عکس خراب «تمیز» شود ولی ابعاد همان بماند.
+  if (cmd == "restore" && argc >= 4) {
+    Options ropt;
+    ropt.in_path = argv[2];
+    ropt.out_path = argv[3];
+    if (!parse_args(argc, argv, &ropt)) {
+      atlas_destroy(ctx);
+      return 2;
+    }
+    atlas::ImageF32 img;
+    std::string error;
+    atlas::ImageMeta meta;
+    if (!load_ready(ropt.in_path, ropt.auto_orient, ropt.color_manage, &img, &meta, &error)) {
+      std::fprintf(stderr, "cannot load %s: %s\n", ropt.in_path.c_str(), error.c_str());
+      atlas_destroy(ctx);
+      return 1;
+    }
+    atlas::ImageF32 out;
+    atlas::RestoreReport rep;
+    int exit_code = 0;
+    if (!apply_restore(img, ropt.denoise_mode, ropt.deblock_mode, ropt.quiet || ropt.json,
+                       &out, &rep, &exit_code)) {
+      atlas_destroy(ctx);
+      return exit_code;
+    }
+    if (!atlas::save_image(ropt.out_path, out, ropt.quality, &error)) {
+      std::fprintf(stderr, "cannot save %s: %s\n", ropt.out_path.c_str(), error.c_str());
+      atlas_destroy(ctx);
+      return 1;
+    }
+    finalize_output(ropt.in_path, ropt.out_path, meta, ropt);
+    if (ropt.json) {
+      std::printf(
+          "{\"sigma_before\":%.4f,\"sigma_after\":%.4f,\"blockiness_before\":%.4f,"
+          "\"blockiness_after\":%.4f,\"ratio_before\":%.3f,\"ratio_after\":%.3f,"
+          "\"deblock\":%s,\"deblock_strength\":%.2f,\"denoise\":%s,"
+          "\"denoise_strength\":%.2f,\"ms\":%.1f,\"width\":%d,\"height\":%d}\n",
+          rep.before.sigma, rep.after.sigma, rep.before.blockiness, rep.after.blockiness,
+          rep.before.blockiness_ratio, rep.after.blockiness_ratio,
+          rep.deblock_applied ? "true" : "false", rep.deblock_strength,
+          rep.denoise_applied ? "true" : "false", rep.denoise_strength, rep.seconds * 1000.0,
+          out.width(), out.height());
+    } else if (!ropt.quiet) {
+      std::printf("%dx%d (%d ch) -> %s\n", out.width(), out.height(), out.channels(),
+                  ropt.out_path.c_str());
+      print_color_line(meta);
+    }
+    atlas_destroy(ctx);
+    return 0;
+  }
+
   if (cmd != "enhance" || argc < 4) {
     print_usage();
     atlas_destroy(ctx);
@@ -542,6 +651,18 @@ int main(int argc, char** argv) {
     std::fprintf(stderr, "cannot load %s: %s\n", opt.in_path.c_str(), error.c_str());
     atlas_destroy(ctx);
     return 1;
+  }
+
+  // P2 پیش از بزرگ‌نمایی: نویز و بلوک‌های JPEG نباید ۴ برابر بزرگ شوند.
+  // پیش‌فرض auto است؛ روی عکس سالم هیچ کاری نمی‌کند (analyze ارزان است).
+  {
+    atlas::RestoreReport rep;
+    int exit_code = 0;
+    if (!apply_restore(src, opt.denoise_mode, opt.deblock_mode, opt.quiet, &src, &rep,
+                       &exit_code)) {
+      atlas_destroy(ctx);
+      return exit_code;
+    }
   }
 
   atlas::SrOptions sr;

@@ -47,6 +47,7 @@
 | [docs/17-evaluation-protocol.md](docs/17-evaluation-protocol.md) | ارزیابی هویت/بافت/انصاف با آستانهٔ عبور |
 | [docs/18-build-plan-wbs.md](docs/18-build-plan-wbs.md) | WBS فایل‌به‌فایل + ترتیب ۱۰ روز اول |
 | [docs/19-identity-gate.md](docs/19-identity-gate.md) | دروازهٔ هویت + مجموعهٔ طلایی: کد، کالیبراسیون، محدودیت‌ها |
+| [docs/20-degrade-restore.md](docs/20-degrade-restore.md) | حذف نویز و آرتیفکت JPEG پیش از بزرگ‌نمایی: اعداد و محدودیت‌ها |
 | [docs/notes/JOURNAL.md](docs/notes/JOURNAL.md) | دفتر یادداشت‌های مهندسی (هر فایل یک ورودی) |
 | [docs/research/sources.md](docs/research/sources.md) | منابع و تاریخ دسترسی (شفافیت پژوهشی) |
 | [models/catalog.json](models/catalog.json) | کاتالوگ ماشین‌خوان مدل‌ها (وظیفه، فرمت، لایسنس، تیر) |
@@ -74,6 +75,7 @@
 - [x] **P1.6 — وفاداری رنگ و آلفا**: تبدیل ICC (Display P3/AdobeRGB → sRGB) از `iCCP` و `APP2`، حفظ آلفای PNG/TGA در کل مسیر SR؛ ۴۵ تست. جزئیات: [docs/18 §۱.۸](docs/18-build-plan-wbs.md).
 - [x] **P1.7 — پایان P1**: WebP (اختیاری)، انتقال EXIF، برچسب sRGB در خروجی، `--gpu`؛ **۴۹ تست**. جمع‌بندی: [docs/18 §۱.۱۰](docs/18-build-plan-wbs.md).
 - [x] **P3-01/P3-04 — دروازهٔ هویت + مجموعهٔ طلایی**: پروکسی ساختاری (چیدمان + HOG + رنگ) با آستانهٔ مستقل از ArcFace، `atlas-cli gate` و `atlas-cli eval-set`، پذیرش خودکار مطابق docs/17؛ **۶۱ تست**. جزئیات و اعداد: [docs/19](docs/19-identity-gate.md).
+- [x] **P2 — عکس خراب**: deblock شرطی ۸×۸ + NLM (patch ۳×۳/search ۵×۵) قبل از SR، با تشخیص خودکار نویز/شبکه؛ **+۴٫۱۷ dB PSNR** روی ورودی خراب و **۶۱ → ۷۱ تست**. جزئیات: [docs/20](docs/20-degrade-restore.md).
 - [ ] **M1 — MVP ویندوز**: Tauri + هستهٔ ncnn-Vulkan + بزرگ‌نمایی ۲x/۴x با tiling + صف دسته‌ای + پریست‌ها.
 
 > **محدودیت صادقانه:** دروازهٔ فعلی پروکسی ساختاری است، نه ArcFace؛ برای گرفتن رگرسیون در CI ساخته شده و «همان شخص» را بیومتریک ثابت نمی‌کند. ArcFace در P3-02 وصل می‌شود.
@@ -93,9 +95,11 @@
 cmake -S core -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j
 ./build/atlas-cli enhance photo.jpg out.png --scale 2 --sharpen 20
 ./build/atlas-cli eval original.png out.png --min-psnr 32 --min-ssim 0.90
-./build/atlas-tests        # ۶۱ تست
+./build/atlas-tests        # ۷۱ تست
 ./build/atlas-cli gate original.png restored.png --face 120,90,256,256
 ./build/atlas-cli eval-set eval/golden/manifest.tsv
+./build/atlas-cli restore photo.jpg clean.png      # حذف نویز/JPEG بدون تغییر ابعاد
+./build/atlas-cli enhance photo.jpg out2x.png --scale 2   # پاک‌سازی خودکار قبل از SR
 
 # ۲) مسیر مدل واقعی (ncnn؛ روی CPU هم اجرا می‌شود، با GPU چند برابر سریع‌تر)
 python3 tools/fetch_models.py --from-wheel        # وزن‌ها هرگز در گیت نیستند

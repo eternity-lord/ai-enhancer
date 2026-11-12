@@ -33,6 +33,7 @@ add_library(atlas-core STATIC
   src/backend/classical_backend.cpp
   src/backend/ncnn_backend.cpp
   src/stages/sr.cpp
+  src/stages/restore.cpp
   src/metrics/metrics.cpp
   src/eval/identity.cpp
   src/eval/golden.cpp
@@ -97,6 +98,7 @@ if (ATLAS_BUILD_TESTS)
     tests/test_metadata.cpp
     tests/test_identity.cpp
     tests/test_golden.cpp
+    tests/test_restore.cpp
   )
   target_link_libraries(atlas-tests PRIVATE atlas-core)
   add_test(NAME atlas-unit COMMAND atlas-tests)

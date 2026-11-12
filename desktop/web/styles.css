@@ -523,3 +523,74 @@ body[data-shell="glass"] .stage-head { cursor: default; }
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
+
+/* ---------------- صف دسته‌ای، پریست‌ها و ورودی‌ها ---------------- */
+.batch-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 0 12px 8px; }
+.btn.small { min-height: 32px; font-size: 11.5px; border-radius: 10px; padding: 0 8px; }
+.btn.tiny { min-height: 26px; font-size: 11px; border-radius: 8px; padding: 0 9px; }
+
+.item .dot-state.done { background: #1fbf6b; }
+.item .dot-state.error { background: #ef4444; }
+.item .dot-state.running { background: #f59e0b; animation: atlas-pulse 1.1s ease-in-out infinite; }
+.item .dot-state.queued { background: rgba(10, 123, 255, 0.55); }
+@keyframes atlas-pulse { 50% { opacity: 0.3; transform: scale(0.8); } }
+.item.running { box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.45); }
+
+.preset-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font: inherit; font-size: 11px; font-weight: 600; padding: 6px 10px;
+  border-radius: 999px; cursor: pointer;
+  color: var(--ink-soft);
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+.chip:hover { background: rgba(255, 255, 255, 0.66); }
+.chip.active {
+  color: #fff;
+  background: linear-gradient(180deg, #4aa8ff 0%, #0a7bff 100%);
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 6px 16px rgba(10, 110, 240, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.num-input, .text-input, .mini-inline {
+  font: inherit; font-size: 11.5px; color: var(--ink);
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 8px; padding: 3px 8px; outline: none;
+}
+.num-input { width: 66px; text-align: center; font-variant-numeric: tabular-nums; }
+.text-input { width: 100%; min-width: 0; direction: ltr; text-align: left; }
+.text-input.mono { font-size: 10.5px; }
+.mini-inline { cursor: pointer; }
+.row-control { min-width: 0; }
+.row-control input:focus, .row-control select:focus { box-shadow: 0 0 0 2px rgba(10, 123, 255, 0.25); }
+.hint { font-size: 10.5px; color: var(--ink-faint); padding: 6px 6px 0; margin: 0; }
+.hint code { background: rgba(255, 255, 255, 0.55); padding: 1px 4px; border-radius: 4px; font-size: 10px; }
+.path-cell {
+  max-width: 152px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  direction: ltr; text-align: left; font-size: 10px;
+}
+
+.jobbar {
+  margin: 6px 2px 8px; padding: 8px 10px; border-radius: 14px;
+  background: rgba(255, 255, 255, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 1px 0 #fff;
+}
+.job-row { display: flex; align-items: center; gap: 8px; }
+.job-title {
+  font-size: 11.5px; color: var(--ink-soft); flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.job-percent { font-size: 11.5px; font-weight: 700; }
+.progress {
+  margin-top: 7px; height: 6px; border-radius: 99px; overflow: hidden;
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 1px 2px rgba(6, 30, 70, 0.12);
+}
+.progress span {
+  display: block; height: 100%; width: 0; border-radius: 99px;
+  background: linear-gradient(90deg, #43c7ff, #0a7bff);
+  transition: width 220ms ease;
+}

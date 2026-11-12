@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import sys
 import threading
+import subprocess
 import time
 import traceback
 import urllib.request
@@ -66,6 +67,18 @@ def wait_until_ready(url: str, timeout: float = 10.0) -> bool:
     return False
 
 
+def _dialog():
+    """ثابت‌های دیالوگ pywebview، با تحمل تفاوت نسخه‌ها."""
+    try:
+        import webview  # noqa: PLC0415
+
+        return webview
+    except Exception:  # noqa: BLE001
+        class _Fallback:  # حداقل برای اینکه خطای واضح بدهیم
+            FOLDER_DIALOG = 20
+        return _Fallback()
+
+
 class Shell:
     """پل کنترل پنجره برای حالت بدون قاب (چراغ‌های macOS و کشیدن پنجره)."""
 
@@ -99,6 +112,34 @@ class Shell:
             self.maximized = not self.maximized
         except Exception:  # noqa: BLE001
             pass
+
+    # انتخاب پوشهٔ خروجی با دیالوگ بومی ویندوز/مک (به‌جای تایپ دستی مسیر).
+    def choose_folder(self) -> dict | str:
+        try:
+            result = self.window.create_file_dialog(
+                _dialog().FOLDER_DIALOG, allow_multiple=False
+            )
+            if result:
+                return str(result[0]) if not isinstance(result, str) else result
+            return ""
+        except Exception as exc:  # noqa: BLE001
+            return {"error": f"انتخاب پوشه ممکن نشد: {exc}"}
+
+    # باز کردن پوشهٔ خروجی در فایل‌منیجر سیستم.
+    def open_folder(self, path: str = "") -> dict:
+        target = path or str(backend.SETTINGS.output_dir())
+        try:
+            folder = Path(target).expanduser()
+            folder.mkdir(parents=True, exist_ok=True)
+            if sys.platform.startswith("win"):
+                subprocess.Popen(["explorer", str(folder)])
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", str(folder)])
+            else:
+                subprocess.Popen(["xdg-open", str(folder)])
+            return {"ok": True, "path": str(folder)}
+        except Exception as exc:  # noqa: BLE001
+            return {"error": f"پوشه باز نشد: {exc}"}
 
     def move_window(self, dx: int, dy: int) -> None:
         try:

@@ -50,6 +50,7 @@
 | [docs/20-degrade-restore.md](docs/20-degrade-restore.md) | حذف نویز و آرتیفکت JPEG پیش از بزرگ‌نمایی: اعداد و محدودیت‌ها |
 | [docs/21-desktop-ui.md](docs/21-desktop-ui.md) | پوستهٔ دسکتاپ با تم Liquid Glass: معماری، کنترل‌ها، محدودیت‌ها |
 | [docs/22-native-app.md](docs/22-native-app.md) | برنامهٔ واقعی ویندوز (Atlas.exe): پنجرهٔ نیتیو، بسته‌بندی، محدودیت‌ها |
+| [docs/23-app-features.md](docs/23-app-features.md) | برنامهٔ کامل: Light AI، پریست‌ها، صف دسته‌ای، خروجی و API |
 | [docs/notes/JOURNAL.md](docs/notes/JOURNAL.md) | دفتر یادداشت‌های مهندسی (هر فایل یک ورودی) |
 | [docs/research/sources.md](docs/research/sources.md) | منابع و تاریخ دسترسی (شفافیت پژوهشی) |
 | [models/catalog.json](models/catalog.json) | کاتالوگ ماشین‌خوان مدل‌ها (وظیفه، فرمت، لایسنس، تیر) |
@@ -80,7 +81,8 @@
 - [x] **P2 — عکس خراب**: deblock شرطی ۸×۸ + NLM (patch ۳×۳/search ۵×۵) قبل از SR، با تشخیص خودکار نویز/شبکه؛ **+۴٫۱۷ dB PSNR** روی ورودی خراب و **۶۱ → ۷۱ تست**. جزئیات: [docs/20](docs/20-degrade-restore.md).
 - [x] **M1-lite — پوستهٔ دسکتاپ**: پنجرهٔ شیشه‌ای (Liquid Glass) با کتابخانهٔ تصاویر، مقایسهٔ قبل/پس، پاک‌سازی و بزرگ‌نمایی واقعی روی `atlas-cli`؛ ۷ تست سرور + ۱۸ بررسی DOM. جزئیات: [docs/21](docs/21-desktop-ui.md).
 - [x] **M1-lite.2 — برنامهٔ واقعی**: `Atlas.exe` تک‌فایل با پنجرهٔ نیتیو (WebView2 + pywebview) و تم شیشه‌ای؛ ساخت با `desktop\build-exe.bat`. جزئیات و محدودیت‌ها: [docs/22](docs/22-native-app.md).
-- [ ] **M1 — MVP ویندوز** (نصب‌کننده، آیکن، صف دسته‌ای): Tauri + هستهٔ ncnn-Vulkan + بزرگ‌نمایی ۲x/۴x با tiling + صف دسته‌ای + پریست‌ها.
+- [x] **M1-lite.3 — برنامهٔ کامل**: Light AI واقعی در هسته (نوردهی/سایه/هایلایت/کنتراست/اشباع/گرمی + حالت خودکار)، ۵ پریست، صف دسته‌ای با پیشرفت زنده از کاشی‌های خود هسته و لغو واقعی، ذخیرهٔ خودکار با الگوی نام/فرمت/پوشه، تنظیمات ماندگار، حذف واقعی؛ **۸۵ تست هسته + ۲۳ تست سرور + ۴۶ بررسی DOM**. جزئیات و اعداد: [docs/23](docs/23-app-features.md).
+- [ ] **M1 — MVP ویندوز** (باقی‌مانده): نصب‌کننده/آیکن، مدل‌های ncnn-Vulkan، و اتصال ArcFace به دروازهٔ هویت.
 
 > **محدودیت صادقانه:** دروازهٔ فعلی پروکسی ساختاری است، نه ArcFace؛ برای گرفتن رگرسیون در CI ساخته شده و «همان شخص» را بیومتریک ثابت نمی‌کند. ArcFace در P3-02 وصل می‌شود.
 
@@ -105,8 +107,8 @@ winget install Microsoft.VisualStudio.2022.BuildTools --override "--quiet --wait
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\windows\install-msvc.ps1
 
 :: بعد در یک پنجرهٔ تازه (CMD یا PowerShell):
-tools\windows\build.bat        :: پیکربندی + ساخت + اجرای ۷۱ تست هسته
-tools\windows\run-desktop.bat  :: باز کردن پوستهٔ دسکتاپ روی http://localhost:8000
+tools\windows\build.bat        :: پیکربندی + ساخت + اجرای ۸۵ تست هسته
+tools\windows\run-desktop.bat  :: باز کردن پنجرهٔ نیتیو Atlas (بدون ساخت exe)
 ```
 
 خروجی موفق: `done. atlas-cli = build\Release\atlas-cli.exe`.
@@ -118,16 +120,18 @@ tools\windows\run-desktop.bat  :: باز کردن پوستهٔ دسکتاپ رو
 ```bash
 # ۱) مسیر کلاسیک (بدون هیچ وابستگی خارجی)
 cmake -S core -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j
-./build/atlas-tests                                 # ۷۱ تست
+./build/atlas-tests                                 # ۸۵ تست
 ./build/atlas-cli enhance photo.jpg out2x.png --scale 2   # پاک‌سازی خودکار + بزرگ‌نمایی
 ./build/atlas-cli restore photo.jpg clean.png             # فقط حذف نویز/JPEG
+./build/atlas-cli adjust photo.jpg lit.png --auto-light --auto-wb --json  # Light AI
+./build/atlas-cli version --json                          # قابلیت‌های build
 ./build/atlas-cli eval original.png out.png --min-psnr 32 --min-ssim 0.90
 ./build/atlas-cli gate original.png restored.png --face 120,90,256,256
 ./build/atlas-cli eval-set eval/golden/manifest.tsv
 
 # ۲) پوستهٔ گرافیکی (محلی، آفلاین)
 python3 desktop/server.py --port 8000             # → http://localhost:8000
-python3 desktop/test_server.py                    # ۹ تست سرور
+python3 desktop/test_server.py                    # ۲۳ تست سرور
 
 # ۳) مسیر مدل واقعی (ncnn؛ روی CPU هم اجرا می‌شود، با GPU چند برابر سریع‌تر)
 python3 tools/fetch_models.py --from-wheel        # وزن‌ها هرگز در گیت نیستند

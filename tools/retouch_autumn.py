@@ -1,28 +1,43 @@
 #!/usr/bin/env python3
 """
-Retouch + "Autumn Golden" preset for portrait photos.
+Full retouch + "Autumn Golden" preset for portrait photos.
 
 Everything runs at the *original* resolution of the input file: no resampling,
 no cropping, no quality loss beyond the JPEG re-encode (q=96, 4:4:4).
 
 Pipeline
 --------
-1. Retouch (local, face regions only)
-     - surface smoothing by edge-preserving bilateral filtering,
-     - high-frequency texture added back so skin keeps real pores,
-     - small blemish / spot removal by median-difference masking,
-     - crisp eyes / lashes / brows / hair (non-skin edges inside the face oval).
+1. Full retouch (local, around the faces; optional hands)
+     - skin mask = hand-placed face oval, refined by skin colour, and gated by
+       three exclusion tests: relative darkness, absolute darkness and local
+       texture energy -> beards, hair, knitwear, fabric and jewellery are never
+       smoothed (that is what turns a beard to mush or a coat to plastic)
+     - chroma smoothing: redness / blotchiness of the skin evened out
+     - two local-shading passes (narrow + wide): dark circles, philtrum and
+       patchy tone flattened toward the local mean, big modelling kept
+     - three-pass edge-preserving bilateral surface blur ("surface blur")
+     - real skin micro-texture added back at a low ratio, so it stays a photo
+     - multi-scale blemish removal (median-difference masks, two radii,
+       restricted to confident skin)
+     - lip polish that softens the crease and wrinkles but keeps a hint of
+       contour (never sharpened: a hard lip line reads as drawn eyeliner)
+     - eyes / lashes / brows protected and then sharpened hard
+     - gentle skin brightening + shadow lift inside the face ovals
 2. Global grade: autumn golden preset
-     - warm white balance, filmic S-curve with lifted blacks,
-     - vibrance + extra warmth on golden hues,
-     - golden highlights, deep neutral-cool shadows,
-     - soft Orton glow, local contrast (clarity),
+     - warm white balance (skin protected), filmic S-curve with lifted blacks,
+     - vibrance + extra warmth on golden hues, greens pushed to gold,
+     - golden highlights, deep warm shadows,
+     - soft Orton glow, clarity, subject separation,
      - output sharpening, vignette, very light film grain.
 
 Usage
 -----
-    python3 tools/retouch_autumn.py IN.JPG OUT.JPG [--scale 1.0]
+    python3 tools/retouch_autumn.py IN.JPG OUT.JPG [--scale 1.0] [--beauty 1.0]
                                                  [--face x,y,rx,ry ...]
+
+    --beauty 0.6   lighter, more natural skin
+    --beauty 1.0   full beauty retouch (default)
+    --beauty 1.4   very strong / glossy-magazine look
 """
 from __future__ import annotations
 
@@ -34,11 +49,26 @@ import numpy as np
 from PIL import Image
 
 # ----------------------------------------------------------------------------
-# defaults: face ovals in original-image pixel coordinates (cx, cy, rx, ry)
+# defaults: ovals in original-image pixel coordinates (cx, cy, rx, ry)
 # ----------------------------------------------------------------------------
 DEFAULT_FACES = [
-    (3750, 2330, 250, 300),   # bride
-    (4410, 1745, 235, 265),   # groom
+    (3755, 2345, 230, 255),   # bride
+    (4442, 1706, 176, 216),   # groom
+]
+# eyes / lips: excluded from the smoothing and sharpened instead
+DEFAULT_EYES = [
+    (3728, 2228, 95, 55),     # bride, left eye (closed, lashes)
+    (3898, 2242, 95, 55),     # bride, right eye
+    (4415, 1692, 195, 75),    # groom, both eyes
+]
+# (only where real lipstick/lips are visible — a mouth buried in a beard must
+#  never be smeared, so the groom has no lip zone)
+DEFAULT_LIPS = [
+    (3800, 2470, 118, 52),    # bride
+]
+DEFAULT_HANDS = [
+    (3915, 3395, 235, 195),   # bride, hands + bracelets
+    (4415, 3340, 275, 205),   # groom, hand + watch
 ]
 
 
@@ -67,56 +97,174 @@ def skin_mask(rgb: np.ndarray) -> np.ndarray:
     return cv2.GaussianBlur(m, (0, 0), 3.0)
 
 
+def _feather_oval_mask(h: int, w: int, ovals, s: float, feather: float) -> np.ndarray:
+    m = np.zeros((h, w), np.float32)
+    for cx, cy, rx, ry in ovals:
+        m = np.maximum(m, ellipse_weight(h, w, cx * s, cy * s, rx * s, ry * s,
+                                         feather=feather))
+    return m
+
+
 # ----------------------------------------------------------------------------
-# 1) retouch
+# 1) full retouch
 # ----------------------------------------------------------------------------
-def retouch_face(img: np.ndarray, oval, s: float,
-                 smooth: float = 0.85, detail_keep: float = 0.55,
-                 spots: float = 0.9, edge_sharpen: float = 0.55) -> np.ndarray:
-    """img: float32 RGB [0,1] full frame. Returns the same frame, face retouched."""
+def retouch_skin(img: np.ndarray, oval, s: float, beauty: float = 1.0,
+                 protect=(), no_sharp=(), feather: float = 0.16,
+                 texture_keep: float = 0.28, edge_sharpen: float = 1.0,
+                 brighten: float = 0.010, bil_sigma: float = 32.0,
+                 tone_even: float = 0.55, dark_thr: float = 0.09,
+                 do_spots: bool = True, do_sharp: bool = True,
+                 do_tone: bool = True) -> np.ndarray:
+    """Heavy but photographic beauty retouch inside one oval region."""
     h, w = img.shape[:2]
     cx, cy, rx, ry = [v * s for v in oval]
-    pad = int(max(rx, ry) * 0.35)
-    x0 = max(int(cx - rx - pad), 0)
-    x1 = min(int(cx + rx + pad), w)
-    y0 = max(int(cy - ry - pad), 0)
-    y1 = min(int(cy + ry + pad), h)
+    pad = int(max(rx, ry) * 0.40)
+    x0, x1 = max(int(cx - rx - pad), 0), min(int(cx + rx + pad), w)
+    y0, y1 = max(int(cy - ry - pad), 0), min(int(cy + ry + pad), h)
     if x1 - x0 < 8 or y1 - y0 < 8:
         return img
 
     roi = img[y0:y1, x0:x1]
     rh, rw = roi.shape[:2]
-
-    oval_w = ellipse_weight(rh, rw, cx - x0, cy - y0, rx, ry)
-    skin = skin_mask(roi) * oval_w
-
-    # --- surface blur that keeps edges (two passes ≈ wide, gentle smoothing)
     u8 = np.clip(roi * 255.0, 0, 255).astype(np.uint8)
-    d = max(5, int(round(9 * s / 1.0)))
-    b1 = cv2.bilateralFilter(u8, d, 26, d)
-    b2 = cv2.bilateralFilter(b1, d, 26, int(round(d * 1.6)))
-    surf = b2.astype(np.float32) / 255.0
+    u8g = u8
 
-    # --- put real texture back on top of the smoothed surface
-    low = gblur(roi, max(2.0, 3.0 * s))
-    detail = roi - low
-    base = surf + detail * detail_keep
+    oval_w = ellipse_weight(rh, rw, cx - x0, cy - y0, max(rx, 2), max(ry, 2), feather)
 
-    # --- blemish / spot pass
-    med = cv2.medianBlur(u8, max(5, int(round(15 * s)) | 1)).astype(np.float32) / 255.0
-    diff = np.abs(roi - med).max(axis=2)
-    spot_m = np.clip((diff - 0.045) / 0.045, 0.0, 1.0) * skin
-    spot_m = (spot_m * spots)[..., None]
-    base = base * (1.0 - spot_m) + med * spot_m
+    # Skin coverage: the hand-placed oval does the bulk of the job, colour only
+    # refines it (shadowed skin falls outside the classic YCrCb window), while
+    # anything clearly darker than its surroundings (brows, lashes, beard, hair)
+    # and anything very dark is excluded.
+    luma_roi = 0.299 * roi[..., 0] + 0.587 * roi[..., 1] + 0.114 * roi[..., 2]
+    luma_s = gblur(luma_roi, max(3.0, 12.0 * s))
+    dark_rel = np.clip(((luma_s - luma_roi) - dark_thr) / 0.10, 0.0, 1.0)
+    very_dark = np.clip((0.16 - luma_roi) / 0.08, 0.0, 1.0)
+    # absolute darkness gate: a beard / hair mass is not skin, even deep inside it
+    dark_abs = np.clip((0.26 - luma_roi) / 0.10, 0.0, 1.0)
+    mx = roi.max(axis=2)
+    mn = roi.min(axis=2)
+    sat = (mx - mn) / np.maximum(mx, 1e-3)
+    color_w = np.clip(skin_mask(roi) * 1.6, 0.0, 1.0)
+    color_w = color_w * np.clip((0.55 - sat) / 0.20, 0.0, 1.0)   # keep the coat out
+    skin = oval_w * (0.55 + 0.45 * color_w)
+    skin = skin * (1.0 - 0.97 * np.maximum(np.maximum(dark_rel, very_dark), dark_abs))
 
-    a = (skin * smooth)[..., None]
-    out = roi * (1.0 - a) + base * a
+    # texture gate: beards, hair, knitwear and fabric grain carry far more local
+    # detail energy than skin — they must never be smoothed (that is what turns
+    # a beard into mush and a coat into plastic)
+    hf_t = np.abs(luma_roi - gblur(luma_roi, max(1.2, 3.0 * s)))
+    tex = gblur(hf_t, max(2.0, 6.0 * s))
+    skin = skin * np.clip((0.048 - tex) / 0.020, 0.0, 1.0)
 
-    # --- crisp eyes / lashes / brows / hair: sharpen everything that is not skin
-    hf = roi - gblur(roi, max(1.0, 1.4 * s))
-    sharp = roi + hf * (1.4 * edge_sharpen)
-    non_skin = (oval_w * (1.0 - skin) * 0.45)[..., None]
-    out = out * (1.0 - non_skin) + sharp * non_skin
+    # eyes: no smoothing, sharpened instead.  lips: smoothed, never sharpened.
+    prot_w = np.zeros((rh, rw), np.float32)
+    for px, py, prx, pry in protect:
+        prot_w = np.maximum(prot_w, ellipse_weight(rh, rw, px * s - x0, py * s - y0,
+                                                   prx * s, pry * s, feather=0.70))
+    lips_w = np.zeros((rh, rw), np.float32)
+    for px, py, prx, pry in no_sharp:
+        lips_w = np.maximum(lips_w, ellipse_weight(rh, rw, px * s - x0, py * s - y0,
+                                                   prx * s, pry * s, feather=0.55))
+    skin = skin * (1.0 - 0.92 * prot_w)
+    # lips stay in the smoothing pass (soft, unlined) — but only where the pixels
+    # really are lips (reddish), never on a moustache or beard around the mouth.
+    lips_ell = lips_w.copy()          # whole mouth oval: smoothed, never sharpened
+    if lips_w.any():
+        ycc_l = cv2.cvtColor(u8g, cv2.COLOR_RGB2YCrCb).astype(np.float32)
+        lip_gate = np.clip((ycc_l[..., 1] - 138.0) / 24.0, 0.0, 1.0)
+        lip_gate = gblur(lip_gate, max(1.0, 2.0 * s))
+        lips_w = lips_w * lip_gate
+    # the mouth oval is smoothed as a whole (its dark lip-line included), so the
+    # lip contour melts into the skin instead of turning into a drawn line
+    skin = np.clip(skin + 0.80 * lips_ell * (1.0 - prot_w), 0.0, 1.0)
+
+    # ---------- 1. chroma smoothing: kill redness and blotchiness ----------
+    ycc = cv2.cvtColor(u8, cv2.COLOR_RGB2YCrCb).astype(np.float32)
+    cr_s = gblur(ycc[..., 1], max(2.0, 7.0 * s))
+    cb_s = gblur(ycc[..., 2], max(2.0, 7.0 * s))
+    a_c = (0.62 * beauty * skin)[..., None]
+    chroma = np.stack([ycc[..., 0],
+                       ycc[..., 1] * (1 - a_c[..., 0]) + cr_s * a_c[..., 0],
+                       ycc[..., 2] * (1 - a_c[..., 0]) + cb_s * a_c[..., 0]], axis=-1)
+    evened = cv2.cvtColor(np.clip(chroma, 0, 255).astype(np.uint8),
+                          cv2.COLOR_YCrCb2RGB).astype(np.float32) / 255.0
+
+    # ---------- 2. local shading evening (dark circles, patchy tone) ------
+    skin_t = skin * (1.0 - lips_w)          # lips keep their own tone
+    luma = (0.299 * evened[..., 0] + 0.587 * evened[..., 1] + 0.114 * evened[..., 2])
+    luma_s = gblur(luma, max(4.0, 16.0 * s))
+    lift = (luma_s - luma)
+    tone = np.clip(lift, -0.25, 0.25) * (tone_even * beauty * skin_t *
+                                         (1.0 if do_tone else 0.0))
+    evened = evened + tone[..., None]
+
+    # a second, much wider pass: flattens big shadows (philtrum, under-nose,
+    # jaw shading) that would otherwise read as smudges on evened-out skin
+    luma_w = 0.299 * evened[..., 0] + 0.587 * evened[..., 1] + 0.114 * evened[..., 2]
+    luma_w2 = gblur(luma_w, max(10.0, 40.0 * s))
+    tone2 = np.clip(luma_w2 - luma_w, -0.30, 0.30) * (0.28 * beauty * skin_t *
+                                                      (1.0 if do_tone else 0.0))
+    evened = np.clip(evened + tone2[..., None], 0.0, 1.0)
+
+    # ---------- 3. three-pass edge-preserving surface blur ----------------
+    u8b = np.clip(evened * 255.0, 0, 255).astype(np.uint8)
+    d1 = max(5, int(round(9 * s)) | 1)
+    surf = cv2.bilateralFilter(u8b, d1, bil_sigma, d1)
+    surf = cv2.bilateralFilter(surf, d1, bil_sigma, int(round(d1 * 1.7)))
+    surf = cv2.bilateralFilter(surf, d1, bil_sigma, int(round(d1 * 2.6)))
+    surf = surf.astype(np.float32) / 255.0
+
+    # ---------- 4. put a little real texture back ------------------------
+    detail = evened - gblur(evened, max(1.4, 2.4 * s))
+    base = surf + detail * (texture_keep * (1.15 - 0.35 * min(beauty, 2.0)))
+
+    # ---------- 5. multi-scale blemish / spot removal --------------------
+    u8s = np.clip(base * 255.0, 0, 255).astype(np.uint8)
+    scales = ((max(9, int(round(13 * s)) | 1), 0.038),
+              (max(15, int(round(27 * s)) | 1), 0.044)) if do_spots else ()
+    for k, thr in scales:
+        med = cv2.medianBlur(u8s, k).astype(np.float32) / 255.0
+        diff = np.abs(base - med).max(axis=2)
+        conf = np.clip((skin - 0.55) / 0.30, 0.0, 1.0)     # confident skin only
+        m = np.clip((diff - thr) / 0.045, 0.0, 1.0) * conf * min(beauty, 1.6)
+        m3 = (m * 0.95)[..., None]
+        base = base * (1 - m3) + med * m3
+        u8s = np.clip(base * 255.0, 0, 255).astype(np.uint8)
+
+    # ---------- 5b. lip polish: soften the crease and lip wrinkles -------
+    if lips_w.any():
+        u8s = np.clip(base * 255.0, 0, 255).astype(np.uint8)
+        lip_soft = cv2.medianBlur(u8s, max(7, int(9 * s) | 1)).astype(np.float32) / 255.0
+        lip_soft = gblur(lip_soft, max(1.0, 1.3 * s))
+        lip_m = cv2.dilate(lips_w, np.ones((9, 9), np.uint8))
+        lip_m = np.clip(gblur(lip_m, max(1.5, 2.5 * s)) * 0.38, 0.0, 0.38)[..., None]
+        base = base * (1 - lip_m) + lip_soft * lip_m
+
+    # ---------- 6. blend the smoothed skin back in -----------------------
+    a = np.clip(skin * min(beauty, 1.0) * 0.98, 0.0, 1.0)[..., None]
+    out = roi * (1 - a) + base * a
+
+    # ---------- 6b. final soft-focus pass: even out residual speckle -----
+    pore_k = np.clip(0.30 * beauty * skin, 0.0, 0.80)[..., None]
+    out = out * (1 - pore_k) + gblur(out, max(1.6, 3.0 * s)) * pore_k
+
+    # ---------- 7. skin polish: bring a little life back + brighten ------
+    lum_out = (0.299 * out[..., 0] + 0.587 * out[..., 1] + 0.114 * out[..., 2])
+    sat_w = np.clip(0.16 * beauty * skin_t + 0.06 * lips_w, 0.0, 0.35)[..., None]
+    out = out + (out - lum_out[..., None]) * sat_w
+    s3 = (skin_t * min(beauty, 1.0) * 0.98)[..., None]
+    out = out + s3 * (brighten * (0.6 + 0.4 * (1.0 - luma)))[..., None]
+    out = np.clip(out, 0.0, 1.0)
+
+    # ---------- 8. sharpen eyes / lashes / brows / hair ------------------
+    hf = roi - gblur(roi, max(1.0, 1.3 * s))
+    sharp = roi + hf * (edge_sharpen if do_sharp else 0.0)
+    w_sharp = np.clip(oval_w * (1.0 - skin) * 0.10 + prot_w * oval_w * 0.65, 0.0, 1.0)
+    w_sharp = w_sharp * (1.0 - 0.9 * lips_w)
+    # lips: only a whisper of contour definition (a full sharpen turns the lip
+    # line into drawn-on eyeliner)
+    w_sharp = np.clip(w_sharp + 0.16 * lips_w, 0.0, 1.0)
+    out = out * (1 - w_sharp[..., None]) + sharp * w_sharp[..., None]
 
     img[y0:y1, x0:x1] = np.clip(out, 0.0, 1.0)
     return img
@@ -125,19 +273,6 @@ def retouch_face(img: np.ndarray, oval, s: float,
 # ----------------------------------------------------------------------------
 # 2) autumn golden preset
 # ----------------------------------------------------------------------------
-def apply_curve(x: np.ndarray, k_contrast: float, lift: float,
-                rolloff: float) -> np.ndarray:
-    """Filmic S-curve: matte lifted blacks, gentle shoulder."""
-    y = x * (1.0 - lift) + lift
-    s = 3.0 * y * y - 2.0 * y * y * y          # smoothstep
-    y = y * (1.0 - k_contrast) + s * k_contrast
-    y = 1.0 - np.power(np.clip(1.0 - y, 0.0, 1.0), rolloff)
-    # soft shoulder: tame the blown sky so the frame does not look hazy
-    over = np.clip(y - 0.78, 0.0, 1.0)
-    y = y - 0.42 * over * over
-    return np.clip(y, 0.0, 1.0)
-
-
 def skin_mask_frame(img: np.ndarray, ovals, s: float = 1.0) -> np.ndarray:
     """Soft full-frame skin mask (computed at 1/8 res, upscaled) for colour work.
 
@@ -163,6 +298,19 @@ def skin_mask_frame(img: np.ndarray, ovals, s: float = 1.0) -> np.ndarray:
                                                feather=0.9))
     m = m * gate
     return cv2.resize(m, (w, h), interpolation=cv2.INTER_LINEAR)
+
+
+def apply_curve(x: np.ndarray, k_contrast: float, lift: float,
+                rolloff: float) -> np.ndarray:
+    """Filmic S-curve: matte lifted blacks, gentle shoulder."""
+    y = x * (1.0 - lift) + lift
+    s = 3.0 * y * y - 2.0 * y * y * y          # smoothstep
+    y = y * (1.0 - k_contrast) + s * k_contrast
+    y = 1.0 - np.power(np.clip(1.0 - y, 0.0, 1.0), rolloff)
+    # soft shoulder: tame the blown sky so the frame does not look hazy
+    over = np.clip(y - 0.78, 0.0, 1.0)
+    y = y - 0.42 * over * over
+    return np.clip(y, 0.0, 1.0)
 
 
 def autumn_grade(img: np.ndarray, s: float = 1.0, ovals=DEFAULT_FACES,
@@ -291,8 +439,14 @@ def main(argv=None) -> int:
     ap.add_argument("dst")
     ap.add_argument("--scale", type=float, default=1.0,
                     help="render scale (1.0 keeps the original pixel size)")
+    ap.add_argument("--beauty", type=float, default=1.0,
+                    help="retouch strength, 0 = off, 1 = full, 1.4 = very strong")
+    ap.add_argument("--no-hands", action="store_true",
+                    help="skip the optional hand / wrist light retouch")
     ap.add_argument("--face", action="append", default=None,
                     help="face oval cx,cy,rx,ry in original pixels (repeatable)")
+    ap.add_argument("--eye", action="append", default=None,
+                    help="protected eye oval cx,cy,rx,ry (repeatable)")
     ap.add_argument("--quality", type=int, default=96)
     ap.add_argument("--no-retouch", action="store_true")
     ap.add_argument("--no-grade", action="store_true")
@@ -301,6 +455,10 @@ def main(argv=None) -> int:
     faces = DEFAULT_FACES
     if a.face:
         faces = [tuple(float(v) for v in f.split(",")) for f in a.face]
+    eyes = DEFAULT_EYES
+    if a.eye:
+        eyes = [tuple(float(v) for v in f.split(",")) for f in a.eye]
+    lips = DEFAULT_LIPS
 
     src = Image.open(a.src)
     src.load()
@@ -317,9 +475,20 @@ def main(argv=None) -> int:
         img = cv2.resize(img, (int(round(W * s)), int(round(H * s))),
                          interpolation=cv2.INTER_AREA)
 
-    if not a.no_retouch:
-        for oval in faces:
-            img = retouch_face(img, oval, s)
+    if not a.no_retouch and a.beauty > 0:
+        for i, oval in enumerate(faces):
+            def _near(lst):
+                return [e for e in lst
+                        if ((e[0] - oval[0]) / max(oval[2], 1)) ** 2 +
+                           ((e[1] - oval[1]) / max(oval[3], 1)) ** 2 < 3.2]
+            img = retouch_skin(img, oval, s, beauty=a.beauty,
+                               protect=_near(eyes), no_sharp=_near(lips))
+        if not a.no_hands:
+            for oval in DEFAULT_HANDS:
+                img = retouch_skin(img, oval, s, beauty=a.beauty * 0.60,
+                                   protect=(), feather=0.30,
+                                   texture_keep=0.34, edge_sharpen=0.9,
+                                   brighten=0.012)
 
     if not a.no_grade:
         img = autumn_grade(img, s, faces)

@@ -52,7 +52,7 @@ from PIL import Image
 # defaults: ovals in original-image pixel coordinates (cx, cy, rx, ry)
 # ----------------------------------------------------------------------------
 DEFAULT_FACES = [
-    (3755, 2345, 230, 255),   # bride
+    (3755, 2340, 246, 272),   # bride
     (4442, 1706, 176, 216),   # groom
 ]
 # eyes / lips: excluded from the smoothing and sharpened instead
@@ -110,7 +110,7 @@ def _feather_oval_mask(h: int, w: int, ovals, s: float, feather: float) -> np.nd
 # ----------------------------------------------------------------------------
 def retouch_skin(img: np.ndarray, oval, s: float, beauty: float = 1.0,
                  protect=(), no_sharp=(), feather: float = 0.16,
-                 texture_keep: float = 0.28, edge_sharpen: float = 1.0,
+                 texture_keep: float = 0.40, edge_sharpen: float = 1.0,
                  brighten: float = 0.010, bil_sigma: float = 32.0,
                  tone_even: float = 0.55, dark_thr: float = 0.09,
                  do_spots: bool = True, do_sharp: bool = True,
@@ -141,12 +141,15 @@ def retouch_skin(img: np.ndarray, oval, s: float, beauty: float = 1.0,
     very_dark = np.clip((0.16 - luma_roi) / 0.08, 0.0, 1.0)
     # absolute darkness gate: a beard / hair mass is not skin, even deep inside it
     dark_abs = np.clip((0.26 - luma_roi) / 0.10, 0.0, 1.0)
+    # the oval decides *where* we retouch; the tests below only remove things
+    # that are definitely not skin.  A colour test is used as a weak hint only —
+    # on bright highlights it fails and would leave the face half-retouched.
     mx = roi.max(axis=2)
     mn = roi.min(axis=2)
     sat = (mx - mn) / np.maximum(mx, 1e-3)
     color_w = np.clip(skin_mask(roi) * 1.6, 0.0, 1.0)
     color_w = color_w * np.clip((0.55 - sat) / 0.20, 0.0, 1.0)   # keep the coat out
-    skin = oval_w * (0.55 + 0.45 * color_w)
+    skin = oval_w * (0.90 + 0.10 * color_w)
     skin = skin * (1.0 - 0.97 * np.maximum(np.maximum(dark_rel, very_dark), dark_abs))
 
     # texture gate: beards, hair, knitwear and fabric grain carry far more local
@@ -154,7 +157,14 @@ def retouch_skin(img: np.ndarray, oval, s: float, beauty: float = 1.0,
     # a beard into mush and a coat into plastic)
     hf_t = np.abs(luma_roi - gblur(luma_roi, max(1.2, 3.0 * s)))
     tex = gblur(hf_t, max(2.0, 6.0 * s))
-    skin = skin * np.clip((0.048 - tex) / 0.020, 0.0, 1.0)
+    skin = skin * np.clip((0.055 - tex) / 0.025, 0.0, 1.0)
+
+    # close the pinholes the colour / texture tests leave behind, so the whole
+    # face gets the same amount of retouch (a patchy mask = patchy skin)
+    k_close = max(9, int(round(19 * s)) | 1)
+    skin = cv2.morphologyEx(skin, cv2.MORPH_CLOSE,
+                            np.ones((k_close, k_close), np.uint8))
+    skin = gblur(skin, max(2.0, 4.0 * s))
 
     # eyes: no smoothing, sharpened instead.  lips: smoothed, never sharpened.
     prot_w = np.zeros((rh, rw), np.float32)
@@ -237,7 +247,7 @@ def retouch_skin(img: np.ndarray, oval, s: float, beauty: float = 1.0,
         lip_soft = cv2.medianBlur(u8s, max(7, int(9 * s) | 1)).astype(np.float32) / 255.0
         lip_soft = gblur(lip_soft, max(1.0, 1.3 * s))
         lip_m = cv2.dilate(lips_w, np.ones((9, 9), np.uint8))
-        lip_m = np.clip(gblur(lip_m, max(1.5, 2.5 * s)) * 0.38, 0.0, 0.38)[..., None]
+        lip_m = np.clip(gblur(lip_m, max(1.5, 2.5 * s)) * 0.30, 0.0, 0.30)[..., None]
         base = base * (1 - lip_m) + lip_soft * lip_m
 
     # ---------- 6. blend the smoothed skin back in -----------------------
@@ -245,7 +255,7 @@ def retouch_skin(img: np.ndarray, oval, s: float, beauty: float = 1.0,
     out = roi * (1 - a) + base * a
 
     # ---------- 6b. final soft-focus pass: even out residual speckle -----
-    pore_k = np.clip(0.30 * beauty * skin, 0.0, 0.80)[..., None]
+    pore_k = np.clip(0.20 * beauty * skin, 0.0, 0.80)[..., None]
     out = out * (1 - pore_k) + gblur(out, max(1.6, 3.0 * s)) * pore_k
 
     # ---------- 7. skin polish: bring a little life back + brighten ------

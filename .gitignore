@@ -74,5 +74,4 @@ desktop/.data/
 # PyInstaller
 *.spec
 
-# Rendered photo deliverables (large binaries: kept in the workspace, not in git)
-output/
+# Rendered photo deliverables are small enough to live in git (output/)
